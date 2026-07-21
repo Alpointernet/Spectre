@@ -25,8 +25,7 @@
 - **Customiseable:** Apply different themes, or create your own.
 - **Fast:** Everything gets fetched blazingly fast.
 - **Discord/Last.fm Integration:** Show what you're listening to in both platforms.
-- **Local Music:** You can also play music from your disk.
-- **Real-Time Lyrics:** Follow along with your favorite tracks with integrated lyrics support.
+- **Real-Time Lyrics:** Watch the lyrics go by as you listen.
 - **Not Electron:** Yeah, thats a feature...
 - **And more!**
 
