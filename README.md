@@ -3,7 +3,7 @@
   
   # Spectre
   
-  **A beautiful, feature-rich audio and radio player for Windows.**
+  **A beautiful, feature-rich music player for Windows.**
   
   [![Platform](https://img.shields.io/badge/platform-Windows-blue)](#)
   [![Framework](https://img.shields.io/badge/framework-WPF%20%2F%20.NET-purple)](#)
@@ -14,34 +14,29 @@
 
 <img width="1684" height="956" alt="1" src="https://github.com/user-attachments/assets/17025a7f-fb44-4266-94e3-65835f713074" />
 
-## 🎵 Overview
+## Overview
 
-**Spectre** is a modern desktop application for Windows built with C# and WPF. Designed with a sleek, premium UI, Spectre is not just an audio player—it's a complete music experience. Whether you're playing local files, tuning into radio stations, or keeping track of your listening history, Spectre handles it with elegance and performance.
+**Spectre** is a modern music player that
 
-## ✨ Features
+## Features
 
-- **Advanced Audio Engine:** Seamless playback for your local music library with gapless transitions.
-- **Internet Radio Support:** Tune into your favorite radio stations directly from the app.
-- **Last.fm Integration:** Automatic scrobbling and authentication support to keep your stats up-to-date.
-- **Discord Rich Presence:** Show off what you're listening to on your Discord profile automatically.
-- **Real-Time Lyrics:** Follow along with your favorite tracks with integrated lyrics support.
-- **Queue Management:** Easily search, add, shuffle, and reorder tracks in your listening queue.
-- **Beautiful Modern UI:** Crafted with customized animations, timeline overlays, and crisp vector icons.
-- **Easy Installation:** Includes an Inno Setup script (`installer.iss`) to quickly generate Windows installers.
+- **Beautiful Modern UI** Comes with nice animations and a sleek GUI.
+- **Discord/Last.fm Integration** Show what you're listening to in both platforms.
+- **Real-Time Lyrics** Follow along with your favorite tracks with integrated lyrics support.
+- **Integrated with YT Music** All of your library, subscriptions, history is in one place.
+- **Not Electron** Yeah, thats a feature...
 
-## 📸 Screenshots
+## Screenshots
 
+<img width="1684" height="956" alt="1" src="https://github.com/user-attachments/assets/7da8d0de-4111-4829-a51d-9e8ec688e60f" />
 
+<img width="1684" height="956" alt="1" src="https://github.com/user-attachments/assets/6739f200-f496-4fa5-99ea-8164bde19003" />
 
-## 🛠️ Technologies Used
+<img width="1684" height="956" alt="1" src="https://github.com/user-attachments/assets/d4152d4e-c565-4d88-abda-61579fa027a6" />
 
-- **C# & .NET**
-- **WPF (Windows Presentation Foundation)**
-- **Last.fm API** (Scrobbling & Metadata)
-- **Discord RPC** (Rich Presence integration)
-- **Inno Setup** (Installer generation)
+<img width="1684" height="956" alt="1" src="https://github.com/user-attachments/assets/7717da00-0b08-4f0b-9ce6-314a0776b759" />
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 - Visual Studio 2022 (or your preferred C# IDE)
@@ -58,7 +53,7 @@
 
 *Alternatively, you can run the `Build.bat` script to compile the project via the command line.*
 
-## 🤝 Contributing
+## Contributing
 
 Contributions, issues, and feature requests are welcome! Feel free to check the [issues page](https://github.com/Alpointernet/Spectre/issues).
 
@@ -71,3 +66,5 @@ Contributions, issues, and feature requests are welcome! Feel free to check the 
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details (if applicable).
+
+"This app is not affiliated with, endorsed by, or supported by Google or YouTube. It uses unofficial methods and may stop working if YouTube changes their service."
