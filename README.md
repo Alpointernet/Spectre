@@ -16,7 +16,7 @@
 
 ## Overview
 
-**Spectre** is a modern music player that
+**Spectre** is a modern music player that prioritises user experience.  
 
 ## Features
 
