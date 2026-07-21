@@ -26,15 +26,8 @@
 - **Integrated with YT Music** All of your library, subscriptions, history is in one place.
 - **Not Electron** Yeah, thats a feature...
 
-## Screenshots
+<img width="3840" height="2160" alt="mergemypics-collage" src="https://github.com/user-attachments/assets/410f0bb7-b2e6-4eb3-8010-da93919fe6f7" />
 
-<img width="1684" height="956" alt="1" src="https://github.com/user-attachments/assets/7da8d0de-4111-4829-a51d-9e8ec688e60f" />
-
-<img width="1684" height="956" alt="1" src="https://github.com/user-attachments/assets/6739f200-f496-4fa5-99ea-8164bde19003" />
-
-<img width="1684" height="956" alt="1" src="https://github.com/user-attachments/assets/d4152d4e-c565-4d88-abda-61579fa027a6" />
-
-<img width="1684" height="956" alt="1" src="https://github.com/user-attachments/assets/7717da00-0b08-4f0b-9ce6-314a0776b759" />
 
 ## Getting Started
 
