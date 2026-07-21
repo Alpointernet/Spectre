@@ -12,6 +12,8 @@
 
 ---
 
+<img width="1684" height="956" alt="1" src="https://github.com/user-attachments/assets/17025a7f-fb44-4266-94e3-65835f713074" />
+
 ## 🎵 Overview
 
 **Spectre** is a modern desktop application for Windows built with C# and WPF. Designed with a sleek, premium UI, Spectre is not just an audio player—it's a complete music experience. Whether you're playing local files, tuning into radio stations, or keeping track of your listening history, Spectre handles it with elegance and performance.
@@ -29,13 +31,7 @@
 
 ## 📸 Screenshots
 
-*(Add screenshots of the application below)*
 
-> **Tip:** You can upload a screenshot to this repository and replace the placeholder link below to showcase Spectre's interface.
-
-<div align="center">
-  <img src="https://raw.githubusercontent.com/Alpointernet/Spectre/main/Icons/splash.png" alt="Spectre Interface" width="600"/>
-</div>
 
 ## 🛠️ Technologies Used
 
