@@ -28,7 +28,7 @@
 - **Local Music:** You can also play music from your disk.
 - **Real-Time Lyrics:** Follow along with your favorite tracks with integrated lyrics support.
 - **Not Electron:** Yeah, thats a feature...
-- And more!
+- **And more!**
 
 <img width="3840" height="2160" alt="mergemypics-collage" src="https://github.com/user-attachments/assets/410f0bb7-b2e6-4eb3-8010-da93919fe6f7" />
 
