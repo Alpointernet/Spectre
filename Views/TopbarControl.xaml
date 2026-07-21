@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl x:Class="Spectre.Views.TopbarControl" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:d="http://schemas.microsoft.com/expression/blend/2008" xmlns:views="clr-namespace:Spectre.Views" xmlns:svgc="http://sharpvectors.codeplex.com/svgc/">
+  <Grid>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="60" />
+      <RowDefinition Height="*" />
+    </Grid.RowDefinitions>
+    <Border Name="TopbarBackground" Grid.RowSpan="2" Height="100" VerticalAlignment="Top" Background="{DynamicResource TopbarFadeBrush}" IsHitTestVisible="False" SnapsToDevicePixels="True" UseLayoutRounding="True" Opacity="0" />
+    <Border Grid.Row="0" Background="#00FFFFFF" BorderThickness="0" BorderBrush="#00FFFFFF" SnapsToDevicePixels="True" UseLayoutRounding="True">
+      <Grid Background="#00FFFFFF">
+        <StackPanel WindowChrome.IsHitTestVisibleInChrome="True" Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="17,0,0,0">
+          <Button Name="BackBtn" Margin="0,0,8,0" ToolTip="Go back" Opacity="0.4" IsEnabled="False" Style="{DynamicResource TopbarCircleButtonStyle}" Click="BackBtn_Click">
+            <svgc:SvgViewbox Source="Icons/previouspage.svg" Width="14" Height="14" HorizontalAlignment="Center" VerticalAlignment="Center" />
+          </Button>
+          <Button Name="ForwardBtn" Margin="0,0,12,0" ToolTip="Go forward" Opacity="0.4" IsEnabled="False" Style="{DynamicResource TopbarCircleButtonStyle}" Click="ForwardBtn_Click">
+            <svgc:SvgViewbox Source="Icons/nextpage.svg" Width="14" Height="14" HorizontalAlignment="Center" VerticalAlignment="Center" />
+          </Button>
+          <views:SearchControl x:Name="MainSearchControl" SearchRequested="MainSearchControl_SearchRequested" SearchBoxGotFocus="MainSearchControl_GotFocus" SearchBoxLostFocus="MainSearchControl_LostFocus" />
+          <Button Name="LoginBtn" Margin="12,0,0,0" ToolTip="Account" Style="{DynamicResource TopbarCircleButtonStyle}" Click="LoginBtn_Click">
+            <svgc:SvgViewbox Source="Icons/user.svg" Width="14" Height="14" />
+          </Button>
+          <Button Name="HistoryBtn" Margin="12,0,0,0" ToolTip="History" Style="{DynamicResource TopbarCircleButtonStyle}" Click="HistoryBtn_Click">
+            <svgc:SvgViewbox Source="Icons/history.svg" Width="14" Height="14" />
+          </Button>
+          <Button Name="SettingsBtn" Margin="12,0,0,0" ToolTip="Settings" Style="{DynamicResource TopbarCircleButtonStyle}" Click="SettingsBtn_Click">
+            <svgc:SvgViewbox Source="Icons/settings.svg" Width="14" Height="14" />
+          </Button>
+          <Border Name="LyricsOffsetPanel" Margin="12,0,0,0" CornerRadius="16" VerticalAlignment="Center" Visibility="Collapsed">
+            <FrameworkElement.Style>
+              <Style TargetType="{x:Type Border}">
+                <Setter Property="Background" Value="#0DFFFFFF" />
+                <Setter Property="BorderBrush" Value="#0FFFFFFF" />
+                <Setter Property="BorderThickness" Value="1" />
+              </Style>
+            </FrameworkElement.Style>
+            <Grid>
+              <StackPanel Orientation="Horizontal" Margin="10,4">
+                <TextBlock Text="Sync:" Foreground="#AAAAAA" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="13" />
+                <Border Width="24" Height="24" Background="#1FFFFFFF" CornerRadius="12" Cursor="Hand" ToolTip="Advance Lyrics (earlier)" MouseLeftButtonDown="LyricsOffsetMinusBtn_Click">
+                  <TextBlock Text="-" Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="16" Margin="0,-2,0,0" />
+                </Border>
+                <TextBlock Name="LyricsOffsetValueText" Text="0.0s" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" Width="44" TextAlignment="Center" FontSize="13" FontWeight="SemiBold" RenderTransformOrigin="0.5,0.5">
+                  <UIElement.RenderTransform>
+                    <ScaleTransform ScaleX="1" ScaleY="1" />
+                  </UIElement.RenderTransform>
+                </TextBlock>
+                <Border Width="24" Height="24" Background="#1FFFFFFF" CornerRadius="12" Cursor="Hand" ToolTip="Delay Lyrics (later)" MouseLeftButtonDown="LyricsOffsetPlusBtn_Click">
+                  <TextBlock Text="+" Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="16" Margin="0,-2,0,0" />
+                </Border>
+              </StackPanel>
+            </Grid>
+          </Border>
+        </StackPanel>
+        <TextBlock Name="StatusLabel" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,152,0" Foreground="#FF808080" FontSize="12" Text="" />
+      </Grid>
+    </Border>
+  </Grid>
+</UserControl>

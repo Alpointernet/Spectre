@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl x:Class="Spectre.Views.OverlayControl" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:d="http://schemas.microsoft.com/expression/blend/2008" xmlns:local="clr-namespace:Spectre.Views" xmlns:svgc="http://sharpvectors.codeplex.com/svgc/">
+  <Grid>
+    <Grid Name="LargeCoverOverlay" Margin="-5,0,0,0" Background="#CC0A0A0E" Visibility="Collapsed" Opacity="0" ZIndex="100" MouseLeftButtonDown="LargeCoverOverlay_MouseLeftButtonDown">
+      <Border Name="LargeCoverBorder" Width="680" Height="680" CornerRadius="16" HorizontalAlignment="Center" VerticalAlignment="Center" RenderTransformOrigin="0.5,0.5">
+        <UIElement.RenderTransform>
+          <ScaleTransform x:Name="LargeCoverScale" ScaleX="0.8" ScaleY="0.8" />
+        </UIElement.RenderTransform>
+        <Rectangle Name="LargeCoverRect" RadiusX="12" RadiusY="12" />
+      </Border>
+    </Grid>
+    <ProgressBar Name="TopLoadingBar" VerticalAlignment="Top" Height="2" BorderThickness="0" Background="#00FFFFFF" Foreground="{DynamicResource AccentGradient}" IsIndeterminate="True" Visibility="Collapsed" Opacity="0" Panel.ZIndex="100" />
+    <Grid Name="LoadingOverlay" ZIndex="1000" Background="{DynamicResource LoadingOverlayBrush}" ClipToBounds="True">
+      <FrameworkElement.Triggers>
+        <EventTrigger RoutedEvent="Grid.Loaded">
+          <BeginStoryboard x:Name="LoadingStoryboardBegin">
+            <Storyboard x:Name="LoadingStoryboard">
+              <DoubleAnimation Storyboard.TargetName="Ripple1Scale" Storyboard.TargetProperty="ScaleX" From="0.5" To="3.5" Duration="0:0:4" RepeatBehavior="Forever" />
+              <DoubleAnimation Storyboard.TargetName="Ripple1Scale" Storyboard.TargetProperty="ScaleY" From="0.5" To="3.5" Duration="0:0:4" RepeatBehavior="Forever" />
+              <DoubleAnimation Storyboard.TargetName="Ripple1" Storyboard.TargetProperty="Opacity" From="0.12" To="0" Duration="0:0:4" RepeatBehavior="Forever" />
+              
+              <DoubleAnimation Storyboard.TargetName="Ripple2Scale" Storyboard.TargetProperty="ScaleX" From="0.5" To="3.5" BeginTime="0:0:2" Duration="0:0:4" RepeatBehavior="Forever" />
+              <DoubleAnimation Storyboard.TargetName="Ripple2Scale" Storyboard.TargetProperty="ScaleY" From="0.5" To="3.5" BeginTime="0:0:2" Duration="0:0:4" RepeatBehavior="Forever" />
+              <DoubleAnimation Storyboard.TargetName="Ripple2" Storyboard.TargetProperty="Opacity" From="0.12" To="0" BeginTime="0:0:2" Duration="0:0:4" RepeatBehavior="Forever" />
+
+              <DoubleAnimation Storyboard.TargetName="TechRingRotation" Storyboard.TargetProperty="Angle" From="0" To="360" Duration="0:0:30" RepeatBehavior="Forever" />
+              <DoubleAnimation Storyboard.TargetName="TechRingRotation2" Storyboard.TargetProperty="Angle" From="360" To="0" Duration="0:0:20" RepeatBehavior="Forever" />
+
+              <DoubleAnimation Storyboard.TargetName="LogoContainerTransform" Storyboard.TargetProperty="Y" From="40" To="0" Duration="0:0:1.5">
+                <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut" /></DoubleAnimation.EasingFunction>
+              </DoubleAnimation>
+              <DoubleAnimation Storyboard.TargetName="LogoContainer" Storyboard.TargetProperty="Opacity" From="0" To="1" Duration="0:0:1.2" />
+              
+              <DoubleAnimation Storyboard.TargetName="LogoBreathing" Storyboard.TargetProperty="ScaleX" From="0.97" To="1.03" Duration="0:0:2" RepeatBehavior="Forever" AutoReverse="True">
+                <DoubleAnimation.EasingFunction><SineEase EasingMode="EaseInOut" /></DoubleAnimation.EasingFunction>
+              </DoubleAnimation>
+              <DoubleAnimation Storyboard.TargetName="LogoBreathing" Storyboard.TargetProperty="ScaleY" From="0.97" To="1.03" Duration="0:0:2" RepeatBehavior="Forever" AutoReverse="True">
+                <DoubleAnimation.EasingFunction><SineEase EasingMode="EaseInOut" /></DoubleAnimation.EasingFunction>
+              </DoubleAnimation>
+
+              <DoubleAnimation Storyboard.TargetName="LoadingPanel" Storyboard.TargetProperty="Opacity" From="0" To="1" BeginTime="0:0:1.0" Duration="0:0:1.2" />
+
+              <DoubleAnimation Storyboard.TargetName="Eq1Scale" Storyboard.TargetProperty="ScaleY" From="0.2" To="0.8" Duration="0:0:0.4" RepeatBehavior="Forever" AutoReverse="True"><DoubleAnimation.EasingFunction><SineEase EasingMode="EaseInOut" /></DoubleAnimation.EasingFunction></DoubleAnimation>
+              <DoubleAnimation Storyboard.TargetName="Eq2Scale" Storyboard.TargetProperty="ScaleY" From="0.9" To="0.3" Duration="0:0:0.5" RepeatBehavior="Forever" AutoReverse="True"><DoubleAnimation.EasingFunction><SineEase EasingMode="EaseInOut" /></DoubleAnimation.EasingFunction></DoubleAnimation>
+              <DoubleAnimation Storyboard.TargetName="Eq3Scale" Storyboard.TargetProperty="ScaleY" From="0.4" To="1.0" Duration="0:0:0.35" RepeatBehavior="Forever" AutoReverse="True"><DoubleAnimation.EasingFunction><SineEase EasingMode="EaseInOut" /></DoubleAnimation.EasingFunction></DoubleAnimation>
+              <DoubleAnimation Storyboard.TargetName="Eq4Scale" Storyboard.TargetProperty="ScaleY" From="0.7" To="0.2" Duration="0:0:0.45" RepeatBehavior="Forever" AutoReverse="True"><DoubleAnimation.EasingFunction><SineEase EasingMode="EaseInOut" /></DoubleAnimation.EasingFunction></DoubleAnimation>
+              <DoubleAnimation Storyboard.TargetName="Eq5Scale" Storyboard.TargetProperty="ScaleY" From="0.3" To="0.9" Duration="0:0:0.55" RepeatBehavior="Forever" AutoReverse="True"><DoubleAnimation.EasingFunction><SineEase EasingMode="EaseInOut" /></DoubleAnimation.EasingFunction></DoubleAnimation>
+              <DoubleAnimation Storyboard.TargetName="Eq6Scale" Storyboard.TargetProperty="ScaleY" From="0.8" To="0.4" Duration="0:0:0.4" RepeatBehavior="Forever" AutoReverse="True"><DoubleAnimation.EasingFunction><SineEase EasingMode="EaseInOut" /></DoubleAnimation.EasingFunction></DoubleAnimation>
+              <DoubleAnimation Storyboard.TargetName="Eq7Scale" Storyboard.TargetProperty="ScaleY" From="0.2" To="1.0" Duration="0:0:0.6" RepeatBehavior="Forever" AutoReverse="True"><DoubleAnimation.EasingFunction><SineEase EasingMode="EaseInOut" /></DoubleAnimation.EasingFunction></DoubleAnimation>
+            </Storyboard>
+          </BeginStoryboard>
+        </EventTrigger>
+      </FrameworkElement.Triggers>
+
+      <Grid Name="LoadingOverlayContentContainer" RenderTransformOrigin="0.5,0.5">
+        <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
+        <Ellipse Name="Ripple1" Width="200" Height="200" Fill="{DynamicResource AccentGradient}" Opacity="0">
+          <UIElement.RenderTransform>
+            <ScaleTransform x:Name="Ripple1Scale" CenterX="100" CenterY="100" ScaleX="0.5" ScaleY="0.5" />
+          </UIElement.RenderTransform>
+        </Ellipse>
+        <Ellipse Name="Ripple2" Width="200" Height="200" Fill="{DynamicResource AccentGradient}" Opacity="0">
+          <UIElement.RenderTransform>
+            <ScaleTransform x:Name="Ripple2Scale" CenterX="100" CenterY="100" ScaleX="0.5" ScaleY="0.5" />
+          </UIElement.RenderTransform>
+        </Ellipse>
+        
+        <Ellipse Width="380" Height="380" Stroke="{DynamicResource AccentGradient}" StrokeThickness="1.5" StrokeDashArray="4 8" Opacity="0.25">
+          <UIElement.RenderTransform>
+            <RotateTransform x:Name="TechRingRotation" CenterX="190" CenterY="190" Angle="0" />
+          </UIElement.RenderTransform>
+        </Ellipse>
+        <Ellipse Width="440" Height="440" Stroke="{DynamicResource AccentGradient}" StrokeThickness="0.5" StrokeDashArray="12 12" Opacity="0.15">
+          <UIElement.RenderTransform>
+            <RotateTransform x:Name="TechRingRotation2" CenterX="220" CenterY="220" Angle="0" />
+          </UIElement.RenderTransform>
+        </Ellipse>
+      </Grid>
+
+      <StackPanel Name="LogoContainer" HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0" RenderTransformOrigin="0.5,0.5">
+        <UIElement.RenderTransform>
+          <TransformGroup>
+            <ScaleTransform x:Name="LogoBreathing" ScaleX="1" ScaleY="1" />
+            <TranslateTransform x:Name="LogoContainerTransform" Y="40" />
+          </TransformGroup>
+        </UIElement.RenderTransform>
+        <Grid HorizontalAlignment="Center">
+          <TextBlock Name="LogoText" Text="spectre" FontSize="85" FontWeight="Heavy" HorizontalAlignment="Center" Foreground="{DynamicResource TextBrush}">
+            <UIElement.CacheMode>
+              <BitmapCache EnableClearType="False" RenderAtScale="2" />
+            </UIElement.CacheMode>
+          </TextBlock>
+        </Grid>
+        
+        <StackPanel Name="LoadingPanel" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,25,0,0" Opacity="0">
+          <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,15,0">
+            <Rectangle Fill="{DynamicResource AccentGradient}" Width="3.5" Height="18" Margin="2,0" RadiusX="1.5" RadiusY="1.5"><UIElement.RenderTransform><ScaleTransform x:Name="Eq1Scale" ScaleY="0.2" CenterY="9" /></UIElement.RenderTransform></Rectangle>
+            <Rectangle Fill="{DynamicResource AccentGradient}" Width="3.5" Height="18" Margin="2,0" RadiusX="1.5" RadiusY="1.5"><UIElement.RenderTransform><ScaleTransform x:Name="Eq2Scale" ScaleY="0.9" CenterY="9" /></UIElement.RenderTransform></Rectangle>
+            <Rectangle Fill="{DynamicResource AccentGradient}" Width="3.5" Height="18" Margin="2,0" RadiusX="1.5" RadiusY="1.5"><UIElement.RenderTransform><ScaleTransform x:Name="Eq3Scale" ScaleY="0.4" CenterY="9" /></UIElement.RenderTransform></Rectangle>
+            <Rectangle Fill="{DynamicResource AccentGradient}" Width="3.5" Height="18" Margin="2,0" RadiusX="1.5" RadiusY="1.5"><UIElement.RenderTransform><ScaleTransform x:Name="Eq4Scale" ScaleY="0.7" CenterY="9" /></UIElement.RenderTransform></Rectangle>
+            <Rectangle Fill="{DynamicResource AccentGradient}" Width="3.5" Height="18" Margin="2,0" RadiusX="1.5" RadiusY="1.5"><UIElement.RenderTransform><ScaleTransform x:Name="Eq5Scale" ScaleY="0.3" CenterY="9" /></UIElement.RenderTransform></Rectangle>
+            <Rectangle Fill="{DynamicResource AccentGradient}" Width="3.5" Height="18" Margin="2,0" RadiusX="1.5" RadiusY="1.5"><UIElement.RenderTransform><ScaleTransform x:Name="Eq6Scale" ScaleY="0.8" CenterY="9" /></UIElement.RenderTransform></Rectangle>
+            <Rectangle Fill="{DynamicResource AccentGradient}" Width="3.5" Height="18" Margin="2,0" RadiusX="1.5" RadiusY="1.5"><UIElement.RenderTransform><ScaleTransform x:Name="Eq7Scale" ScaleY="0.2" CenterY="9" /></UIElement.RenderTransform></Rectangle>
+          </StackPanel>
+        </StackPanel>
+      </StackPanel>
+      </Grid>
+    </Grid>
+    <Grid Name="CreditsOverlay" ZIndex="1500" Visibility="Collapsed" Opacity="0" Background="#B2000000" MouseLeftButtonDown="CreditsOverlay_MouseLeftButtonDown">
+      <Border Name="CreditsDialogBorder" HorizontalAlignment="Center" VerticalAlignment="Center" Width="450" Margin="0,50,0,50" Background="#1E1E24" BorderBrush="#30FFFFFF" BorderThickness="1" CornerRadius="12" Padding="25" MouseLeftButtonDown="CreditsBorder_MouseLeftButtonDown">
+        <Grid>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+          </Grid.RowDefinitions>
+          <TextBlock Text="Song Credits" Foreground="{DynamicResource TextBrush}" FontSize="22" FontWeight="Bold" Margin="0,0,0,20" />
+          <Button Grid.Row="0" HorizontalAlignment="Right" VerticalAlignment="Top" Width="30" Height="30" Margin="0,-5,-5,0" Style="{DynamicResource SettingsButtonStyle}" Padding="0" Click="CloseCreditsBtn_Click">
+            <svgc:SvgViewbox Source="Icons/close.svg" Width="14" Height="14" />
+          </Button>
+          <ScrollViewer Name="CreditsScrollViewer" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="0,0,-10,0" Padding="0,0,10,0" PreviewMouseWheel="CreditsScrollViewer_PreviewMouseWheel">
+            <StackPanel Name="CreditsPanel">
+              <TextBlock Name="CreditsLoadingText" Text="Loading credits..." Foreground="{DynamicResource TextSecondaryBrush}" FontSize="14" FontStyle="Italic" HorizontalAlignment="Center" Margin="0,40,0,40" />
+            </StackPanel>
+          </ScrollViewer>
+        </Grid>
+      </Border>
+    </Grid>
+    <Grid Name="GlobalErrorOverlay" ZIndex="5000" Visibility="Collapsed" Background="#F20A0A0C">
+      <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+        <svgc:SvgViewbox Source="Icons/internet.svg" Width="80" Height="80" Margin="0,0,0,20" HorizontalAlignment="Center" Opacity="0.5" />
+        <TextBlock Name="GlobalErrorTitle" Text="No Internet Connection" Foreground="{DynamicResource TextBrush}" FontSize="20" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,0,0,10" />
+        <TextBlock Name="GlobalErrorDetails" Text="Details" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="14" HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" MaxWidth="400" />
+        <Border Name="GlobalErrorRetryBtn" Background="#28FFFFFF" CornerRadius="16" Padding="20,8" Margin="0,20,0,0" Cursor="Hand" HorizontalAlignment="Center" MouseEnter="GlobalErrorRetryBtn_MouseEnter" MouseLeave="GlobalErrorRetryBtn_MouseLeave" MouseLeftButtonDown="GlobalErrorRetryBtn_Click">
+          <TextBlock Text="Retry" Foreground="{DynamicResource TextBrush}" FontWeight="SemiBold" FontSize="14" />
+        </Border>
+      </StackPanel>
+    </Grid>
+    <Grid Name="LogOverlay" ZIndex="1600" Visibility="Collapsed" Background="#B2000000">
+      <Border HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="40" Background="#1E1E24" BorderBrush="#30FFFFFF" BorderThickness="1" CornerRadius="12" Padding="18">
+        <Grid>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+          </Grid.RowDefinitions>
+          <DockPanel LastChildFill="True">
+            <StackPanel Orientation="Horizontal" DockPanel.Dock="Left" VerticalAlignment="Center">
+              <TextBlock Text="Real-time Log" Foreground="{DynamicResource TextBrush}" FontSize="18" FontWeight="Bold" VerticalAlignment="Center" />
+              <TextBlock Text=" (Press F9 to toggle)" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" VerticalAlignment="Center" Margin="10,4,0,0" />
+            </StackPanel>
+            <Button Content="Close" Style="{DynamicResource SettingsButtonStyle}" Width="80" Height="32" HorizontalAlignment="Right" Click="CloseLogButton_Click" />
+          </DockPanel>
+          <RichTextBox Name="LogRichTextBox" Grid.Row="1" Margin="0,12,0,0" Background="#101018" Foreground="#E8E8E8" FontFamily="Consolas" FontSize="12" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" IsReadOnly="True" IsDocumentEnabled="True" FlowDirection="LeftToRight">
+            <RichTextBox.Resources>
+              <Style TargetType="{x:Type Paragraph}">
+                <Setter Property="Margin" Value="0,0,0,12" />
+              </Style>
+            </RichTextBox.Resources>
+            <FlowDocument PageWidth="5000" />
+          </RichTextBox>
+        </Grid>
+      </Border>
+    </Grid>
+    <Border Name="ToastBorder" Panel.ZIndex="2000" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,100" Background="{DynamicResource ToastBackground}" BorderBrush="{DynamicResource ToastBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="20,12" IsHitTestVisible="False" Opacity="0" Visibility="Collapsed">
+      <UIElement.RenderTransform>
+        <TranslateTransform x:Name="ToastTransform" Y="20" />
+      </UIElement.RenderTransform>
+      <TextBlock Name="ToastText" Text="" Foreground="{DynamicResource TextBrush}" FontSize="14" FontWeight="SemiBold" HorizontalAlignment="Center" />
+    </Border>
+    <Canvas Name="ConfettiCanvas" IsHitTestVisible="False" ZIndex="9999" />
+  </Grid>
+</UserControl>

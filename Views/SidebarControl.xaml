@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl x:Class="Spectre.Views.SidebarControl" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:views="clr-namespace:Spectre.Views">
+  <Border Name="SidebarBorder" Background="{DynamicResource SidebarBrush}">
+    <Grid Name="SidebarGrid" Background="#00FFFFFF">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="*" />
+        <RowDefinition Height="Auto" />
+      </Grid.RowDefinitions>
+      <StackPanel Name="SidebarTitlePanel" Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="20,20,0,0" IsHitTestVisible="False">
+        <Image Source="pack://application:,,,/Icons/highresapp.png" Width="16" Height="16" Margin="0,0,10,0" />
+        <TextBlock Name="SidebarTitleText" Text="Spectre" Foreground="{DynamicResource TextBrush}" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" />
+      </StackPanel>
+      <StackPanel Name="HomeNavPanel" Margin="20,60,20,10" Grid.Row="0">
+        <views:SidebarTab x:Name="HomeNavBorder" Text="Home" IconSource="Icons/home.svg" PageId="home" Command="{Binding NavigateCommand}" />
+        <views:SidebarTab x:Name="ExploreNavBorder" Text="Explore" IconSource="Icons/explore.svg" PageId="explore" Command="{Binding NavigateCommand}" />
+        <views:SidebarTab x:Name="RadioNavBorder" Text="Radio" IconSource="Icons/radio.svg" PageId="radio_page" Command="{Binding NavigateCommand}" />
+        <views:SidebarTab x:Name="PlaylistsNavBorder" Text="Playlists" IconSource="Icons/playlist.svg" PageId="playlists_page" Visibility="Collapsed" Command="{Binding NavigateCommand}" />
+        <views:SidebarTab x:Name="AlbumsNavBorder" Text="Albums" IconSource="Icons/album.svg" PageId="albums_page" Visibility="Collapsed" Command="{Binding NavigateCommand}" />
+        <views:SidebarTab x:Name="LocalNavBorder" Text="Local" IconSource="Icons/vinyl.svg" PageId="local_files" Command="{Binding NavigateCommand}" />
+        <views:SidebarTab x:Name="StatsNavBorder" Text="Stats" IconSource="Icons/stats.svg" PageId="stats_page" Command="{Binding NavigateCommand}" />
+      </StackPanel>
+      <Grid Grid.Row="1">
+        <Grid.OpacityMask>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                <GradientStop x:Name="TopFadeStop" Color="#FFFFFFFF" Offset="0"/>
+                <GradientStop x:Name="TopSolidStop" Color="#FFFFFFFF" Offset="0.1"/>
+                <GradientStop x:Name="BottomSolidStop" Color="#FFFFFFFF" Offset="0.9"/>
+                <GradientStop x:Name="BottomFadeStop" Color="#FFFFFFFF" Offset="1"/>
+            </LinearGradientBrush>
+        </Grid.OpacityMask>
+        <ListBox Name="LibraryPanel" Margin="20,0,20,20" Padding="0" Background="#00FFFFFF" BorderThickness="0" ScrollViewer.VerticalScrollBarVisibility="Hidden" ScrollViewer.HorizontalScrollBarVisibility="Disabled" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" VirtualizingPanel.ScrollUnit="Pixel" ScrollViewer.ScrollChanged="LibraryPanel_ScrollChanged" PreviewMouseWheel="LibraryPanel_PreviewMouseWheel">
+          <ItemsControl.ItemContainerStyle>
+            <Style TargetType="{x:Type ListBoxItem}">
+              <Setter Property="Padding" Value="0" />
+              <Setter Property="Margin" Value="0" />
+              <Setter Property="BorderThickness" Value="0" />
+              <Setter Property="Background" Value="#00FFFFFF" />
+              <Setter Property="Template">
+                <Setter.Value>
+                  <ControlTemplate TargetType="{x:Type ListBoxItem}">
+                    <ContentPresenter />
+                  </ControlTemplate>
+                </Setter.Value>
+              </Setter>
+            </Style>
+          </ItemsControl.ItemContainerStyle>
+        </ListBox>
+      </Grid>
+      <Grid Name="SidebarCoverContainer" Grid.Row="2" Height="0" ClipToBounds="True" Cursor="Hand" MouseDown="SidebarCoverContainer_MouseDown">
+        <Grid Margin="20">
+          <Rectangle Name="SidebarCoverImage" Stretch="UniformToFill" RadiusX="8" RadiusY="8" RenderTransformOrigin="0.5,0.5" RenderOptions.BitmapScalingMode="HighQuality">
+            <Rectangle.RenderTransform>
+              <RotateTransform x:Name="SidebarCoverRotation" Angle="0" />
+            </Rectangle.RenderTransform>
+          </Rectangle>
+          
+          <Ellipse Name="SidebarVinylHole" Width="30" Height="30" Fill="#101010" Visibility="Collapsed" IsHitTestVisible="False" />
+          <Ellipse Name="SidebarVinylHoleInner" Width="10" Height="10" Fill="#404040" Visibility="Collapsed" IsHitTestVisible="False" />
+
+          <Viewbox Name="SidebarGramophoneTonearm" Stretch="Uniform" Visibility="Collapsed" IsHitTestVisible="False">
+            <Canvas Width="48" Height="48" ClipToBounds="False">
+              <Canvas.RenderTransform>
+                <RotateTransform x:Name="SidebarTonearmRotation" Angle="0" CenterX="44" CenterY="4" />
+              </Canvas.RenderTransform>
+              <Path Data="M 44,4 Q 40,24 24,24 L 18,24" Stroke="#A0A0A0" StrokeThickness="2" />
+              <Path Data="M 18,23 L 14,21 L 14,27 L 18,25 Z" Fill="#555" />
+              <Path Data="M 18,23 L 14,21 L 14,27 L 18,25 Z" Stroke="#444" StrokeThickness="0.5" />
+              <Ellipse Canvas.Left="40" Canvas.Top="0" Width="8" Height="8" Fill="#909090" />
+              <Ellipse Canvas.Left="42" Canvas.Top="2" Width="4" Height="4" Fill="#333" />
+            </Canvas>
+          </Viewbox>
+        </Grid>
+      </Grid>
+    </Grid>
+  </Border>
+</UserControl>

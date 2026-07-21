@@ -1,0 +1,4 @@
+using System.Windows;
+
+[assembly: ThemeInfo(ResourceDictionaryLocation.None, ResourceDictionaryLocation.SourceAssembly)]
+[assembly: System.Runtime.Versioning.SupportedOSPlatform("windows10.0.19041.0")]

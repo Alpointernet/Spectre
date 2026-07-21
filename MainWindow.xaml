@@ -1,0 +1,646 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window x:Class="Spectre.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:svgc="http://sharpvectors.codeplex.com/svgc/" xmlns:local="clr-namespace:Spectre" xmlns:views="clr-namespace:Spectre.Views" xmlns:helpers="clr-namespace:Spectre.Helpers" xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf" Title="Spectre" Height="900" Width="1515" MinWidth="1100" MinHeight="600" WindowStartupLocation="CenterScreen" WindowStyle="None" ResizeMode="CanResize" FontFamily="/Fonts/#Montserrat, Segoe UI Emoji, Segoe UI Symbol" TextOptions.TextFormattingMode="Ideal" TextOptions.TextRenderingMode="ClearType" Background="#0D0D12" Foreground="{DynamicResource TextBrush}" Icon="pack://application:,,,/Icons/highresapp.png">
+  <WindowChrome.WindowChrome>
+    <WindowChrome CaptionHeight="60" ResizeBorderThickness="6" CornerRadius="0" GlassFrameThickness="-1" UseAeroCaptionButtons="False" />
+  </WindowChrome.WindowChrome>
+  <FrameworkElement.Resources>
+    <ResourceDictionary>
+      <SolidColorBrush x:Key="SearchOverlayBackground" Color="#E50F0F16" />
+      <SolidColorBrush x:Key="TextBrush" Color="White" />
+      <SolidColorBrush x:Key="TextSecondaryBrush" Color="#A0A0A0" />
+      <SolidColorBrush x:Key="ToastBackground" Color="#F01A1829" />
+      <SolidColorBrush x:Key="ToastBorderBrush" Color="#30FFFFFF" />
+      <SolidColorBrush x:Key="SidebarTextBrush" Color="#BDBDBD" />
+      <LinearGradientBrush x:Key="AccentGradient" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#00E5FF" Offset="0" />
+        <GradientStop Color="#7000FF" Offset="1" />
+      </LinearGradientBrush>
+      <LinearGradientBrush x:Key="AccentGradientHover" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#33EDFF" Offset="0" />
+        <GradientStop Color="#8C33FF" Offset="1" />
+      </LinearGradientBrush>
+      <LinearGradientBrush x:Key="MainBackground" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#1A1829" Offset="0" />
+        <GradientStop Color="#0D0D12" Offset="0.4" />
+        <GradientStop Color="#0A0A0E" Offset="1" />
+      </LinearGradientBrush>
+      <LinearGradientBrush x:Key="TopbarFadeBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#E61A1829" Offset="0" />
+        <GradientStop Color="#E61A1829" Offset="0.4" />
+        <GradientStop Color="#C81A1829" Offset="0.6" />
+        <GradientStop Color="#641A1829" Offset="0.8" />
+        <GradientStop Color="Transparent" Offset="1" />
+      </LinearGradientBrush>
+      <Style x:Key="TopbarCircleButtonStyle" TargetType="{x:Type Button}">
+        <Setter Property="Width" Value="32" />
+        <Setter Property="Height" Value="32" />
+        <Setter Property="Background" Value="#00FFFFFF" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="FrameworkElement.Cursor" Value="Hand" />
+        <Setter Property="Template">
+          <Setter.Value>
+            <ControlTemplate TargetType="{x:Type Button}">
+              <Grid>
+                <Border Name="BaseBorder" Width="32" Height="32" CornerRadius="16" Background="#0DFFFFFF" BorderBrush="#0FFFFFFF" BorderThickness="1">
+                  <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+              </Grid>
+              <ControlTemplate.Triggers>
+                <EventTrigger RoutedEvent="MouseEnter">
+                  <BeginStoryboard>
+                    <Storyboard>
+                      <ColorAnimation Storyboard.TargetName="BaseBorder" Storyboard.TargetProperty="Background.(SolidColorBrush.Color)" To="#1CFFFFFF" Duration="0:0:0.05" />
+                      <ColorAnimation Storyboard.TargetName="BaseBorder" Storyboard.TargetProperty="BorderBrush.(SolidColorBrush.Color)" To="#25FFFFFF" Duration="0:0:0.05" />
+                    </Storyboard>
+                  </BeginStoryboard>
+                </EventTrigger>
+                <EventTrigger RoutedEvent="MouseLeave">
+                  <BeginStoryboard>
+                    <Storyboard>
+                      <ColorAnimation Storyboard.TargetName="BaseBorder" Storyboard.TargetProperty="Background.(SolidColorBrush.Color)" To="#0DFFFFFF" Duration="0:0:0.05" />
+                      <ColorAnimation Storyboard.TargetName="BaseBorder" Storyboard.TargetProperty="BorderBrush.(SolidColorBrush.Color)" To="#0FFFFFFF" Duration="0:0:0.05" />
+                    </Storyboard>
+                  </BeginStoryboard>
+                </EventTrigger>
+              </ControlTemplate.Triggers>
+            </ControlTemplate>
+          </Setter.Value>
+        </Setter>
+      </Style>
+      <Style x:Key="{x:Type ScrollBar}" TargetType="{x:Type ScrollBar}">
+        <Setter Property="Background" Value="#00FFFFFF" />
+        <Setter Property="Template">
+          <Setter.Value>
+            <ControlTemplate TargetType="{x:Type ScrollBar}">
+              <Grid Background="#00FFFFFF">
+                <Track Name="PART_Track" IsDirectionReversed="true">
+                  <Track.Thumb>
+                    <Thumb>
+                      <Control.Template>
+                        <ControlTemplate TargetType="{x:Type Thumb}">
+                          <Border Background="#20FFFFFF" CornerRadius="4" Margin="4" />
+                        </ControlTemplate>
+                      </Control.Template>
+                    </Thumb>
+                  </Track.Thumb>
+                </Track>
+              </Grid>
+            </ControlTemplate>
+          </Setter.Value>
+        </Setter>
+        <Setter Property="helpers:AnimationHelper.FadeInOnVisible" Value="True" />
+      </Style>
+      <Style x:Key="{x:Type ContextMenu}" TargetType="{x:Type ContextMenu}">
+        <Setter Property="Background" Value="{DynamicResource ContextMenuBackground}" />
+        <Setter Property="Foreground" Value="#FFFFFFFF" />
+        <Setter Property="BorderBrush" Value="#1FFFFFFF" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="6" />
+        <Setter Property="UIElement.SnapsToDevicePixels" Value="True" />
+        <Setter Property="Template">
+          <Setter.Value>
+            <ControlTemplate TargetType="{x:Type ContextMenu}">
+              <Border Background="{TemplateBinding Control.Background}" BorderBrush="{TemplateBinding Control.BorderBrush}" BorderThickness="{TemplateBinding Control.BorderThickness}" CornerRadius="12" Padding="{TemplateBinding Control.Padding}">
+                <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle" />
+              </Border>
+            </ControlTemplate>
+          </Setter.Value>
+        </Setter>
+      </Style>
+      <Style x:Key="{x:Type MenuItem}" TargetType="{x:Type MenuItem}">
+        <Setter Property="Background" Value="#00FFFFFF" />
+        <Setter Property="Foreground" Value="#F2F2F2" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="FrameworkElement.Cursor" Value="Hand" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="MinWidth" Value="180" />
+        <Setter Property="Template">
+          <Setter.Value>
+            <ControlTemplate TargetType="{x:Type MenuItem}">
+              <Grid Background="#00FFFFFF">
+                <Border Name="ItemBorder" Background="{TemplateBinding Control.Background}" CornerRadius="8" Padding="12,9">
+                  <Grid Background="#00FFFFFF">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="*" />
+                      <ColumnDefinition Width="18" />
+                    </Grid.ColumnDefinitions>
+                    <ContentPresenter ContentSource="Header" RecognizesAccessKey="True" VerticalAlignment="Center" />
+                    <Path Name="SubmenuArrow" Grid.Column="1" Data="M0,0 L5,5 L0,10" Stroke="#BDBDBD" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Visibility="Collapsed" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                  </Grid>
+                </Border>
+                <Popup Name="PART_Popup" Placement="Right" AllowsTransparency="True" Focusable="False" PopupAnimation="Fade" PlacementTarget="{Binding RelativeSource={RelativeSource TemplatedParent}}" IsOpen="{Binding IsSubmenuOpen, RelativeSource={RelativeSource TemplatedParent}}">
+                  <Border Background="{DynamicResource ContextMenuBackground}" BorderBrush="#1FFFFFFF" BorderThickness="1" CornerRadius="12" Padding="6">
+                    <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle" />
+                  </Border>
+                </Popup>
+              </Grid>
+              <ControlTemplate.Triggers>
+                <Trigger Property="MenuItem.IsHighlighted" Value="True">
+                  <Setter TargetName="ItemBorder" Value="{DynamicResource CardHoverBrush}" Property="Border.Background" />
+                </Trigger>
+                <Trigger Property="ItemsControl.HasItems" Value="True">
+                  <Setter TargetName="SubmenuArrow" Property="Visibility" Value="Visible" />
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                  <Setter Property="Foreground" Value="#777777" />
+                </Trigger>
+              </ControlTemplate.Triggers>
+            </ControlTemplate>
+          </Setter.Value>
+        </Setter>
+      </Style>
+      <Style x:Key="AccentButtonStyle" TargetType="{x:Type Button}">
+        <Setter Property="Background" Value="{DynamicResource AccentGradient}" />
+        <Setter Property="Foreground" Value="#FFFFFFFF" />
+        <Setter Property="FrameworkElement.Cursor" Value="Hand" />
+        <Setter Property="Template">
+          <Setter.Value>
+            <ControlTemplate TargetType="{x:Type Button}">
+              <Grid>
+                <Border Name="NormalBorder" Background="{TemplateBinding Control.Background}" CornerRadius="24" />
+                <Border Name="HoverBorder" Background="{DynamicResource AccentGradientHover}" CornerRadius="24" Opacity="0" />
+                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+              </Grid>
+              <ControlTemplate.Triggers>
+                <EventTrigger RoutedEvent="MouseEnter">
+                  <BeginStoryboard>
+                    <Storyboard>
+                      <DoubleAnimation Storyboard.TargetName="HoverBorder" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.1" />
+                    </Storyboard>
+                  </BeginStoryboard>
+                </EventTrigger>
+                <EventTrigger RoutedEvent="MouseLeave">
+                  <BeginStoryboard>
+                    <Storyboard>
+                      <DoubleAnimation Storyboard.TargetName="HoverBorder" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.1" />
+                    </Storyboard>
+                  </BeginStoryboard>
+                </EventTrigger>
+                <EventTrigger RoutedEvent="PreviewMouseLeftButtonDown">
+                  <BeginStoryboard>
+                    <Storyboard>
+                      <DoubleAnimation Storyboard.TargetName="NormalBorder" Storyboard.TargetProperty="Opacity" To="0.8" Duration="0:0:0.0" />
+                      <DoubleAnimation Storyboard.TargetName="HoverBorder" Storyboard.TargetProperty="Opacity" To="0.8" Duration="0:0:0.0" />
+                    </Storyboard>
+                  </BeginStoryboard>
+                </EventTrigger>
+                <EventTrigger RoutedEvent="PreviewMouseLeftButtonUp">
+                  <BeginStoryboard>
+                    <Storyboard>
+                      <DoubleAnimation Storyboard.TargetName="NormalBorder" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.05" />
+                      <DoubleAnimation Storyboard.TargetName="HoverBorder" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.05" />
+                    </Storyboard>
+                  </BeginStoryboard>
+                </EventTrigger>
+              </ControlTemplate.Triggers>
+            </ControlTemplate>
+          </Setter.Value>
+        </Setter>
+      </Style>
+      <local:SliderWidthConverter x:Key="SliderWidthConverter" />
+      <Style x:Key="IconButtonStyle" TargetType="{x:Type Button}">
+        <Setter Property="Background" Value="#00FFFFFF" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="FrameworkElement.Cursor" Value="Hand" />
+        <Setter Property="Template">
+          <Setter.Value>
+            <ControlTemplate TargetType="{x:Type Button}">
+              <Grid Background="#00FFFFFF">
+                <Ellipse Name="HoverCircle" Fill="#00FFFFFF" />
+                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+              </Grid>
+              <ControlTemplate.Triggers>
+                <Trigger Property="UIElement.IsMouseOver" Value="True">
+                  <Setter TargetName="HoverCircle" Property="Shape.Fill" Value="#22FFFFFF" />
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                  <Setter TargetName="HoverCircle" Property="Shape.Fill" Value="#44FFFFFF" />
+                </Trigger>
+              </ControlTemplate.Triggers>
+            </ControlTemplate>
+          </Setter.Value>
+        </Setter>
+      </Style>
+      <Style x:Key="WindowControlButtonStyle" TargetType="{x:Type Button}">
+        <Setter Property="Width" Value="32" />
+        <Setter Property="Height" Value="32" />
+        <Setter Property="Background" Value="#00FFFFFF" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="FrameworkElement.Cursor" Value="Hand" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Template">
+          <Setter.Value>
+            <ControlTemplate TargetType="{x:Type Button}">
+              <Grid>
+                <Border Name="WindowControlBorder" Width="32" Height="32" CornerRadius="16" Background="#0DFFFFFF" BorderBrush="#0FFFFFFF" BorderThickness="1">
+                  <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+              </Grid>
+              <ControlTemplate.Triggers>
+                <EventTrigger RoutedEvent="MouseEnter">
+                  <BeginStoryboard>
+                    <Storyboard>
+                      <ColorAnimation Storyboard.TargetName="WindowControlBorder" Storyboard.TargetProperty="Background.(SolidColorBrush.Color)" To="#1CFFFFFF" Duration="0:0:0.05" />
+                      <ColorAnimation Storyboard.TargetName="WindowControlBorder" Storyboard.TargetProperty="BorderBrush.(SolidColorBrush.Color)" To="#25FFFFFF" Duration="0:0:0.05" />
+                    </Storyboard>
+                  </BeginStoryboard>
+                </EventTrigger>
+                <EventTrigger RoutedEvent="MouseLeave">
+                  <BeginStoryboard>
+                    <Storyboard>
+                      <ColorAnimation Storyboard.TargetName="WindowControlBorder" Storyboard.TargetProperty="Background.(SolidColorBrush.Color)" To="#0DFFFFFF" Duration="0:0:0.05" />
+                      <ColorAnimation Storyboard.TargetName="WindowControlBorder" Storyboard.TargetProperty="BorderBrush.(SolidColorBrush.Color)" To="#0FFFFFFF" Duration="0:0:0.05" />
+                    </Storyboard>
+                  </BeginStoryboard>
+                </EventTrigger>
+                <EventTrigger RoutedEvent="PreviewMouseLeftButtonDown">
+                  <BeginStoryboard>
+                    <Storyboard>
+                      <ColorAnimation Storyboard.TargetName="WindowControlBorder" Storyboard.TargetProperty="Background.(SolidColorBrush.Color)" To="#2EFFFFFF" Duration="0:0:0.0" />
+                      <ColorAnimation Storyboard.TargetName="WindowControlBorder" Storyboard.TargetProperty="BorderBrush.(SolidColorBrush.Color)" To="#36FFFFFF" Duration="0:0:0.0" />
+                    </Storyboard>
+                  </BeginStoryboard>
+                </EventTrigger>
+                <EventTrigger RoutedEvent="PreviewMouseLeftButtonUp">
+                  <BeginStoryboard>
+                    <Storyboard>
+                      <ColorAnimation Storyboard.TargetName="WindowControlBorder" Storyboard.TargetProperty="Background.(SolidColorBrush.Color)" To="#1CFFFFFF" Duration="0:0:0.05" />
+                      <ColorAnimation Storyboard.TargetName="WindowControlBorder" Storyboard.TargetProperty="BorderBrush.(SolidColorBrush.Color)" To="#25FFFFFF" Duration="0:0:0.05" />
+                    </Storyboard>
+                  </BeginStoryboard>
+                </EventTrigger>
+              </ControlTemplate.Triggers>
+            </ControlTemplate>
+          </Setter.Value>
+        </Setter>
+      </Style>
+      <Style x:Key="CloseWindowControlButtonStyle" TargetType="{x:Type Button}" BasedOn="{StaticResource WindowControlButtonStyle}">
+        <Setter Property="Template">
+          <Setter.Value>
+            <ControlTemplate TargetType="{x:Type Button}">
+              <Grid>
+                <Border Name="WindowControlBorder" Width="32" Height="32" CornerRadius="16" Background="#0DFFFFFF" BorderBrush="#0FFFFFFF" BorderThickness="1" />
+                <Border Name="HoverBorder" Width="32" Height="32" CornerRadius="16" Background="#D91F35" BorderBrush="#F05A6B" BorderThickness="1" Opacity="0" />
+                <Border Name="PressedBorder" Width="32" Height="32" CornerRadius="16" Background="#F05A6B" BorderBrush="#FF8B96" BorderThickness="1" Opacity="0" />
+                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+              </Grid>
+              <ControlTemplate.Triggers>
+                <EventTrigger RoutedEvent="MouseEnter">
+                  <BeginStoryboard>
+                    <Storyboard>
+                      <DoubleAnimation Storyboard.TargetName="HoverBorder" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.05" />
+                    </Storyboard>
+                  </BeginStoryboard>
+                </EventTrigger>
+                <EventTrigger RoutedEvent="MouseLeave">
+                  <BeginStoryboard>
+                    <Storyboard>
+                      <DoubleAnimation Storyboard.TargetName="HoverBorder" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.05" />
+                      <DoubleAnimation Storyboard.TargetName="PressedBorder" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.05" />
+                    </Storyboard>
+                  </BeginStoryboard>
+                </EventTrigger>
+                <EventTrigger RoutedEvent="PreviewMouseLeftButtonDown">
+                  <BeginStoryboard>
+                    <Storyboard>
+                      <DoubleAnimation Storyboard.TargetName="PressedBorder" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.0" />
+                    </Storyboard>
+                  </BeginStoryboard>
+                </EventTrigger>
+                <EventTrigger RoutedEvent="PreviewMouseLeftButtonUp">
+                  <BeginStoryboard>
+                    <Storyboard>
+                      <DoubleAnimation Storyboard.TargetName="PressedBorder" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.05" />
+                    </Storyboard>
+                  </BeginStoryboard>
+                </EventTrigger>
+              </ControlTemplate.Triggers>
+            </ControlTemplate>
+          </Setter.Value>
+        </Setter>
+      </Style>
+      <Style x:Key="ModernSlider" TargetType="{x:Type Slider}">
+        <Setter Property="Background" Value="#404040" />
+        <Setter Property="Foreground" Value="{DynamicResource AccentGradient}" />
+        <Setter Property="FrameworkElement.UseLayoutRounding" Value="False" />
+        <Setter Property="UIElement.SnapsToDevicePixels" Value="False" />
+        <Setter Property="Template">
+          <Setter.Value>
+            <ControlTemplate TargetType="{x:Type Slider}">
+              <Grid VerticalAlignment="Center">
+                <Border Height="4" Background="{TemplateBinding Control.Background}" CornerRadius="2" />
+                <Border Height="4" Background="{TemplateBinding Control.Foreground}" CornerRadius="2" HorizontalAlignment="Left">
+                  <FrameworkElement.Width>
+                    <MultiBinding Converter="{StaticResource SliderWidthConverter}">
+                      <Binding Path="Value" RelativeSource="{RelativeSource TemplatedParent}" />
+                      <Binding Path="Maximum" RelativeSource="{RelativeSource TemplatedParent}" />
+                      <Binding Path="ActualWidth" RelativeSource="{RelativeSource TemplatedParent}" />
+                    </MultiBinding>
+                  </FrameworkElement.Width>
+                </Border>
+                <Track Name="PART_Track">
+                  <Track.DecreaseRepeatButton>
+                    <RepeatButton Command="Slider.DecreaseLarge" Background="#00FFFFFF" BorderThickness="0" Opacity="0" />
+                  </Track.DecreaseRepeatButton>
+                  <Track.Thumb>
+                    <Thumb Width="12" Height="12" Background="#FFFFFFFF">
+                      <Control.Template>
+                        <ControlTemplate TargetType="{x:Type Thumb}">
+                          <Ellipse Fill="{TemplateBinding Control.Background}">
+                          </Ellipse>
+                        </ControlTemplate>
+                      </Control.Template>
+                    </Thumb>
+                  </Track.Thumb>
+                  <Track.IncreaseRepeatButton>
+                    <RepeatButton Command="Slider.IncreaseLarge" Background="#00FFFFFF" BorderThickness="0" Opacity="0" />
+                  </Track.IncreaseRepeatButton>
+                </Track>
+              </Grid>
+            </ControlTemplate>
+          </Setter.Value>
+        </Setter>
+      </Style>
+      <Style x:Key="SettingsButtonStyle" TargetType="{x:Type Button}">
+        <Setter Property="Background" Value="{DynamicResource CardBackground}" />
+        <Setter Property="Foreground" Value="#FFFFFFFF" />
+        <Setter Property="Padding" Value="15,10" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="FrameworkElement.Cursor" Value="Hand" />
+        <Setter Property="Template">
+          <Setter.Value>
+            <ControlTemplate TargetType="{x:Type Button}">
+              <Border Name="Border" Background="{TemplateBinding Control.Background}" BorderBrush="{TemplateBinding Control.BorderBrush}" BorderThickness="{TemplateBinding Control.BorderThickness}" CornerRadius="18" Padding="{TemplateBinding Control.Padding}">
+                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+              </Border>
+              <ControlTemplate.Triggers>
+                <Trigger Property="UIElement.IsMouseOver" Value="True">
+                  <Setter TargetName="Border" Value="{DynamicResource CardHoverBrush}" Property="Border.Background" />
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                  <Setter TargetName="Border" Value="{DynamicResource CardPressedBrush}" Property="Border.Background" />
+                </Trigger>
+              </ControlTemplate.Triggers>
+            </ControlTemplate>
+          </Setter.Value>
+        </Setter>
+      </Style>
+      <Style x:Key="SettingsAccentButtonStyle" TargetType="{x:Type Button}">
+        <Setter Property="Background" Value="{DynamicResource AccentGradient}" />
+        <Setter Property="Foreground" Value="#FFFFFFFF" />
+        <Setter Property="Padding" Value="15,10" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="FrameworkElement.Cursor" Value="Hand" />
+        <Setter Property="Template">
+          <Setter.Value>
+            <ControlTemplate TargetType="{x:Type Button}">
+              <Grid>
+                <Border Name="NormalBorder" Background="{TemplateBinding Control.Background}" BorderBrush="{TemplateBinding Control.BorderBrush}" BorderThickness="{TemplateBinding Control.BorderThickness}" CornerRadius="18" />
+                <Border Name="HoverBorder" Background="{DynamicResource AccentGradientHover}" CornerRadius="18" Opacity="0" />
+                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="{TemplateBinding Control.Padding}" />
+              </Grid>
+              <ControlTemplate.Triggers>
+                <EventTrigger RoutedEvent="MouseEnter">
+                  <BeginStoryboard>
+                    <Storyboard>
+                      <DoubleAnimation Storyboard.TargetName="HoverBorder" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.1" />
+                    </Storyboard>
+                  </BeginStoryboard>
+                </EventTrigger>
+                <EventTrigger RoutedEvent="MouseLeave">
+                  <BeginStoryboard>
+                    <Storyboard>
+                      <DoubleAnimation Storyboard.TargetName="HoverBorder" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.1" />
+                    </Storyboard>
+                  </BeginStoryboard>
+                </EventTrigger>
+                <EventTrigger RoutedEvent="PreviewMouseLeftButtonDown">
+                  <BeginStoryboard>
+                    <Storyboard>
+                      <DoubleAnimation Storyboard.TargetName="NormalBorder" Storyboard.TargetProperty="Opacity" To="0.8" Duration="0:0:0.0" />
+                      <DoubleAnimation Storyboard.TargetName="HoverBorder" Storyboard.TargetProperty="Opacity" To="0.8" Duration="0:0:0.0" />
+                    </Storyboard>
+                  </BeginStoryboard>
+                </EventTrigger>
+                <EventTrigger RoutedEvent="PreviewMouseLeftButtonUp">
+                  <BeginStoryboard>
+                    <Storyboard>
+                      <DoubleAnimation Storyboard.TargetName="NormalBorder" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.05" />
+                      <DoubleAnimation Storyboard.TargetName="HoverBorder" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.05" />
+                    </Storyboard>
+                  </BeginStoryboard>
+                </EventTrigger>
+              </ControlTemplate.Triggers>
+            </ControlTemplate>
+          </Setter.Value>
+        </Setter>
+      </Style>
+      <Style x:Key="ModernToggleSwitch" TargetType="{x:Type CheckBox}">
+        <Setter Property="Foreground" Value="#FFFFFFFF" />
+        <Setter Property="FrameworkElement.Cursor" Value="Hand" />
+        <Setter Property="Template">
+          <Setter.Value>
+            <ControlTemplate TargetType="{x:Type CheckBox}">
+              <StackPanel Orientation="Horizontal" Background="#00FFFFFF">
+                <Border Name="SwitchBorder" Width="44" Height="24" CornerRadius="12" Background="#2A2A36" VerticalAlignment="Center" Margin="0,0,15,0">
+                  <Ellipse Name="Thumb" Width="18" Height="18" Fill="#FFFFFFFF" HorizontalAlignment="Left" Margin="3,0,0,0">
+                    <UIElement.RenderTransform>
+                      <TranslateTransform x:Name="ThumbTransform" X="0" />
+                    </UIElement.RenderTransform>
+                  </Ellipse>
+                </Border>
+                <ContentPresenter VerticalAlignment="Center" />
+              </StackPanel>
+              <ControlTemplate.Triggers>
+                <Trigger Property="ToggleButton.IsChecked" Value="True">
+                  <Setter TargetName="SwitchBorder" Value="{DynamicResource AccentGradient}" Property="Border.Background" />
+                  <TriggerBase.EnterActions>
+                    <BeginStoryboard>
+                      <Storyboard>
+                        <DoubleAnimation Storyboard.TargetName="ThumbTransform" Storyboard.TargetProperty="X" To="20" Duration="0:0:0.05">
+                          <DoubleAnimation.EasingFunction>
+                            <QuadraticEase EasingMode="EaseOut" />
+                          </DoubleAnimation.EasingFunction>
+                        </DoubleAnimation>
+                      </Storyboard>
+                    </BeginStoryboard>
+                  </TriggerBase.EnterActions>
+                  <TriggerBase.ExitActions>
+                    <BeginStoryboard>
+                      <Storyboard>
+                        <DoubleAnimation Storyboard.TargetName="ThumbTransform" Storyboard.TargetProperty="X" To="0" Duration="0:0:0.05">
+                          <DoubleAnimation.EasingFunction>
+                            <QuadraticEase EasingMode="EaseOut" />
+                          </DoubleAnimation.EasingFunction>
+                        </DoubleAnimation>
+                      </Storyboard>
+                    </BeginStoryboard>
+                  </TriggerBase.ExitActions>
+                </Trigger>
+                <Trigger Property="UIElement.IsMouseOver" Value="True">
+                  <Setter TargetName="SwitchBorder" Property="UIElement.Opacity" Value="0.8" />
+                </Trigger>
+              </ControlTemplate.Triggers>
+            </ControlTemplate>
+          </Setter.Value>
+        </Setter>
+      </Style>
+      <Style x:Key="ModernRadioButton" TargetType="{x:Type RadioButton}">
+        <Setter Property="Foreground" Value="#B0B0B0" />
+        <Setter Property="FrameworkElement.Cursor" Value="Hand" />
+        <Setter Property="Template">
+          <Setter.Value>
+            <ControlTemplate TargetType="{x:Type RadioButton}">
+              <StackPanel Orientation="Horizontal" Background="#00FFFFFF">
+                <Grid Width="20" Height="20" Margin="0,0,10,0">
+                  <Ellipse Stroke="#4A4A5A" StrokeThickness="2" Fill="#00FFFFFF" />
+                  <Ellipse Name="CheckMark" Fill="{DynamicResource AccentGradient}" Margin="5" Opacity="0">
+                    <UIElement.RenderTransform>
+                      <ScaleTransform ScaleX="0.5" ScaleY="0.5" CenterX="5" CenterY="5" />
+                    </UIElement.RenderTransform>
+                  </Ellipse>
+                </Grid>
+                <ContentPresenter VerticalAlignment="Center" />
+              </StackPanel>
+              <ControlTemplate.Triggers>
+                <Trigger Property="ToggleButton.IsChecked" Value="True">
+                  <Setter Property="Foreground" Value="#FFFFFFFF" />
+                  <TriggerBase.EnterActions>
+                    <BeginStoryboard>
+                      <Storyboard>
+                        <DoubleAnimation Storyboard.TargetName="CheckMark" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.1" />
+                        <DoubleAnimation Storyboard.TargetName="CheckMark" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)" To="1" Duration="0:0:0.1" />
+                        <DoubleAnimation Storyboard.TargetName="CheckMark" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)" To="1" Duration="0:0:0.1" />
+                      </Storyboard>
+                    </BeginStoryboard>
+                  </TriggerBase.EnterActions>
+                  <TriggerBase.ExitActions>
+                    <BeginStoryboard>
+                      <Storyboard>
+                        <DoubleAnimation Storyboard.TargetName="CheckMark" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.1" />
+                        <DoubleAnimation Storyboard.TargetName="CheckMark" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)" To="0.5" Duration="0:0:0.1" />
+                        <DoubleAnimation Storyboard.TargetName="CheckMark" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)" To="0.5" Duration="0:0:0.1" />
+                      </Storyboard>
+                    </BeginStoryboard>
+                  </TriggerBase.ExitActions>
+                </Trigger>
+                <Trigger Property="UIElement.IsMouseOver" Value="True">
+                  <Setter Property="Foreground" Value="#FFFFFFFF" />
+                </Trigger>
+              </ControlTemplate.Triggers>
+            </ControlTemplate>
+          </Setter.Value>
+        </Setter>
+      </Style>
+      <DrawingImage x:Key="ThumbPrevIcon">
+        <DrawingImage.Drawing>
+          <DrawingGroup>
+            <GeometryDrawing Brush="#00FFFFFF">
+              <GeometryDrawing.Geometry>
+                <RectangleGeometry Rect="2,2,20,20" />
+              </GeometryDrawing.Geometry>
+            </GeometryDrawing>
+            <GeometryDrawing Brush="#FFFFFFFF" Geometry="M6,6 L8,6 L8,18 L6,18 M18,6 L9,12 L18,18" />
+          </DrawingGroup>
+        </DrawingImage.Drawing>
+      </DrawingImage>
+      <DrawingImage x:Key="ThumbPlayIcon">
+        <DrawingImage.Drawing>
+          <DrawingGroup>
+            <GeometryDrawing Brush="#00FFFFFF">
+              <GeometryDrawing.Geometry>
+                <RectangleGeometry Rect="2,2,20,20" />
+              </GeometryDrawing.Geometry>
+            </GeometryDrawing>
+            <GeometryDrawing Brush="#FFFFFFFF" Geometry="M8,5 L19,12 L8,19" />
+          </DrawingGroup>
+        </DrawingImage.Drawing>
+      </DrawingImage>
+      <DrawingImage x:Key="ThumbPauseIcon">
+        <DrawingImage.Drawing>
+          <DrawingGroup>
+            <GeometryDrawing Brush="#00FFFFFF">
+              <GeometryDrawing.Geometry>
+                <RectangleGeometry Rect="2,2,20,20" />
+              </GeometryDrawing.Geometry>
+            </GeometryDrawing>
+            <GeometryDrawing Brush="#FFFFFFFF" Geometry="M6,5 L10,5 L10,19 L6,19 M14,5 L18,5 L18,19 L14,19" />
+          </DrawingGroup>
+        </DrawingImage.Drawing>
+      </DrawingImage>
+      <DrawingImage x:Key="ThumbNextIcon">
+        <DrawingImage.Drawing>
+          <DrawingGroup>
+            <GeometryDrawing Brush="#00FFFFFF">
+              <GeometryDrawing.Geometry>
+                <RectangleGeometry Rect="2,2,20,20" />
+              </GeometryDrawing.Geometry>
+            </GeometryDrawing>
+            <GeometryDrawing Brush="#FFFFFFFF" Geometry="M6,6 L15,12 L6,18 M16,6 L18,6 L18,18 L16,18" />
+          </DrawingGroup>
+        </DrawingImage.Drawing>
+      </DrawingImage>
+    </ResourceDictionary>
+  </FrameworkElement.Resources>
+  <Window.TaskbarItemInfo>
+    <TaskbarItemInfo>
+      <TaskbarItemInfo.ThumbButtonInfos>
+        <ThumbButtonInfo x:Name="TaskbarPrevBtn" Description="Previous" ImageSource="{StaticResource ThumbPrevIcon}" Click="TaskbarPrevBtn_Click" />
+        <ThumbButtonInfo x:Name="TaskbarPlayPauseBtn" Description="Play" ImageSource="{StaticResource ThumbPlayIcon}" Click="TaskbarPlayPauseBtn_Click" />
+        <ThumbButtonInfo x:Name="TaskbarNextBtn" Description="Next" ImageSource="{StaticResource ThumbNextIcon}" Click="TaskbarNextBtn_Click" />
+      </TaskbarItemInfo.ThumbButtonInfos>
+    </TaskbarItemInfo>
+  </Window.TaskbarItemInfo>
+  <Grid Name="RootGrid" Background="{DynamicResource MainBackground}" UseLayoutRounding="True" SnapsToDevicePixels="True">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="*" />
+      <RowDefinition Height="76" />
+    </Grid.RowDefinitions>
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Name="SidebarColumn" Width="240" MinWidth="64" MaxWidth="500" />
+      <ColumnDefinition Width="Auto" />
+      <ColumnDefinition Width="*" />
+      <ColumnDefinition Name="QueueSidebarColumn" Width="0" />
+    </Grid.ColumnDefinitions>
+
+    <views:SidebarControl x:Name="MainSidebar" Sidebar_MouseLeftButtonDown="Sidebar_MouseLeftButtonDown" SidebarCoverContainer_MouseDown_Event="SidebarCoverContainer_MouseDown" Grid.Row="0" Grid.Column="0" />
+    <!-- BackgroundWebView removed to speed up startup -->
+    <GridSplitter Grid.Row="0" Grid.Column="1" Width="5" Background="#00FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Stretch" Cursor="SizeWE" ShowsPreview="False" />
+    <Grid Row="0" Column="2">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="60" />
+        <RowDefinition Height="*" />
+      </Grid.RowDefinitions>
+      <ScrollViewer Name="MainScrollViewer" Grid.Row="0" Grid.RowSpan="2" Background="#00FFFFFF" VerticalScrollBarVisibility="Visible" SnapsToDevicePixels="False" UseLayoutRounding="False" PreviewMouseWheel="MainScrollViewer_PreviewMouseWheel" ScrollChanged="MainScrollViewer_ScrollChanged">
+        <FrameworkElement.Resources>
+          <ResourceDictionary>
+            <Style x:Key="{x:Type ScrollBar}" TargetType="{x:Type ScrollBar}" BasedOn="{StaticResource {x:Type ScrollBar}}">
+              <Style.Triggers>
+                <Trigger Property="ScrollBar.Orientation" Value="Vertical">
+                  <Setter Property="Margin" Value="0,60,0,0" />
+                </Trigger>
+              </Style.Triggers>
+            </Style>
+          </ResourceDictionary>
+        </FrameworkElement.Resources>
+        <StackPanel Name="ContentPanel" Margin="12,60,14,20" />
+      </ScrollViewer>
+      <views:SearchOverlayControl x:Name="MainSearchOverlay" RecentSearchClicked="MainSearchOverlay_RecentSearchClicked" RecentSearchRemoved="MainSearchOverlay_RecentSearchRemoved" Grid.Row="0" Grid.RowSpan="2" Margin="-5,0,0,0" Panel.ZIndex="8" />
+      <views:TopbarControl x:Name="MainTopbarControl" BackBtn_Click_Event="BackBtn_Click" ForwardBtn_Click_Event="ForwardBtn_Click" LoginBtn_Click_Event="LoginBtn_Click" HistoryBtn_Click_Event="HistoryBtn_Click" SettingsBtn_Click_Event="SettingsBtn_Click" LyricsOffsetMinusBtn_Click_Event="LyricsOffsetMinusBtn_Click" LyricsOffsetPlusBtn_Click_Event="LyricsOffsetPlusBtn_Click" MainSearchControl_SearchRequested_Event="MainSearchControl_SearchRequested" MainSearchControl_GotFocus_Event="MainSearchControl_GotFocus" MainSearchControl_LostFocus_Event="MainSearchControl_LostFocus" Grid.Row="0" Grid.RowSpan="2" Margin="-5,0,0,0" Panel.ZIndex="10" />
+    </Grid>
+    <views:QueueControl x:Name="MainQueueControl" QueueScrollViewer_PreviewMouseWheel="QueueScrollViewer_PreviewMouseWheel" Grid.Row="0" Grid.RowSpan="1" Grid.Column="3" />
+    <views:PlayerBarControl x:Name="MainPlayerBarControl" PlayerThumbnailBorder_MouseDown_Event="PlayerThumbnailBorder_MouseDown" ShuffleBtn_Click_Event="ShuffleBtn_Click" PrevBtn_Click_Event="PrevBtn_Click" PlayPauseBtn_Click_Event="PlayPauseBtn_Click" NextBtn_Click_Event="NextBtn_Click" RepeatBtn_Click_Event="RepeatBtn_Click" Timeline_MouseLeftButtonDown_Event="Timeline_MouseLeftButtonDown" Timeline_MouseMove_Event="Timeline_MouseMove" Timeline_MouseLeftButtonUp_Event="Timeline_MouseLeftButtonUp" Timeline_MouseLeave_Event="Timeline_MouseLeave" QueueBtn_Click_Event="QueueBtn_Click" LyricsBtn_Click_Event="LyricsBtn_Click" VolumeIcon_Click_Event="VolumeIcon_Click" VolumeSlider_ValueChanged_Event="VolumeSlider_ValueChanged" VolumeSlider_PreviewMouseWheel_Event="VolumeSlider_PreviewMouseWheel" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="4" Panel.ZIndex="20" />
+    <views:OverlayControl x:Name="MainOverlayControl" LargeCoverOverlay_MouseLeftButtonDown_Event="LargeCoverOverlay_MouseLeftButtonDown" CreditsOverlay_MouseLeftButtonDown_Event="CreditsOverlay_MouseLeftButtonDown" CreditsBorder_MouseLeftButtonDown_Event="CreditsBorder_MouseLeftButtonDown" CloseCreditsBtn_Click_Event="CloseCreditsBtn_Click" CreditsScrollViewer_PreviewMouseWheel_Event="CreditsScrollViewer_PreviewMouseWheel" GlobalErrorRetryBtn_MouseEnter_Event="GlobalErrorRetryBtn_MouseEnter" GlobalErrorRetryBtn_MouseLeave_Event="GlobalErrorRetryBtn_MouseLeave" GlobalErrorRetryBtn_Click_Event="GlobalErrorRetryBtn_Click" CloseLogButton_Click_Event="CloseLogButton_Click" Grid.Row="0" Grid.RowSpan="3" Grid.Column="0" Grid.ColumnSpan="4" Panel.ZIndex="1000" />
+    <StackPanel Grid.Row="0" Grid.ColumnSpan="4" ZIndex="3000" WindowChrome.IsHitTestVisibleInChrome="True" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,14,14,0">
+      <Button Name="MinBtn" Style="{StaticResource WindowControlButtonStyle}" ToolTip="Minimize" Click="MinBtn_Click">
+        <svgc:SvgViewbox Source="Icons/minimize.svg" Width="12" Height="12" Opacity="0.82" />
+      </Button>
+      <Button Name="MaxBtn" Style="{StaticResource WindowControlButtonStyle}" ToolTip="Maximize" Margin="12,0,0,0" Click="MaxBtn_Click">
+        <svgc:SvgViewbox Name="MaxBtnIcon" Source="Icons/maximize.svg" Width="12" Height="12" Opacity="0.82" />
+      </Button>
+      <Button Name="CloseBtn" Style="{StaticResource CloseWindowControlButtonStyle}" ToolTip="Close" Margin="12,0,0,0" Click="CloseBtn_Click">
+        <svgc:SvgViewbox Source="Icons/close.svg" Width="12" Height="12" Opacity="0.9" />
+      </Button>
+    </StackPanel>
+  </Grid>
+</Window>
