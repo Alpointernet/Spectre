@@ -21,7 +21,7 @@
 ## Features
 
 - **Beautiful Modern UI:** Comes with nice animations and a familiar yet sleek GUI.
-- **Integrated with YT Music:** All of your library, subscriptions, history is in one place.
+- **YT Music Support:** All of your library, subscriptions, history is in one place.
 - **Customiseable:** Apply different themes, or create your own.
 - **Fast:** Everything gets fetched blazingly fast.
 - **Discord/Last.fm Integration:** Show what you're listening to in both platforms.
