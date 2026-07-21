@@ -20,14 +20,15 @@
 
 ## Features
 
-- **Beautiful Modern UI** Comes with nice animations and a sleek GUI.
-- **Discord/Last.fm Integration** Show what you're listening to in both platforms.
-- **Real-Time Lyrics** Follow along with your favorite tracks with integrated lyrics support.
-- **Integrated with YT Music** All of your library, subscriptions, history is in one place.
-- **Not Electron** Yeah, thats a feature...
+- **Beautiful Modern UI:** Comes with nice animations and a sleek GUI.
+- **Integrated with YT Music:** All of your library, subscriptions, history is in one place.
+- **Theme Support:** Use the pre-made themes, or create your own.
+- **Fast:** Everything gets fetched blazingly fast.
+- **Discord/Last.fm Integration:** Show what you're listening to in both platforms.
+- **Real-Time Lyrics:** Follow along with your favorite tracks with integrated lyrics support.
+- **Not Electron:** Yeah, thats a feature...
 
 <img width="3840" height="2160" alt="mergemypics-collage" src="https://github.com/user-attachments/assets/410f0bb7-b2e6-4eb3-8010-da93919fe6f7" />
-
 
 ## Getting Started
 
@@ -56,7 +57,7 @@ Contributions, issues, and feature requests are welcome! Feel free to check the 
 4. Push to the Branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details (if applicable).
 
