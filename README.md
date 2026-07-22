@@ -14,10 +14,6 @@
 
 <img width="1684" height="956" alt="1" src="https://github.com/user-attachments/assets/17025a7f-fb44-4266-94e3-65835f713074" />
 
-## Overview
-
-**Spectre** is a modern music player that prioritises user experience.  
-
 ## Features
 
 - **Beautiful Modern UI:** Comes with nice animations and a familiar yet sleek GUI.
