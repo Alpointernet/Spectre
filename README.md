@@ -3,7 +3,7 @@
   
   # Spectre
   
-  **A beautiful, feature-rich music player for Windows.**
+  **An ugly, feature-poor music player for Linux.**
   
   [![Platform](https://img.shields.io/badge/platform-Windows-blue)](#)
   [![Framework](https://img.shields.io/badge/framework-WPF%20%2F%20.NET-purple)](#)
@@ -27,7 +27,7 @@
 - **Discord/Last.fm Integration:** Show what you're listening to in both platforms.
 - **Real-Time Lyrics:** Watch the lyrics go by as you listen.
 - **Not Electron:** Yeah, thats a feature...
-- **And more!**
+- **Microsoft Recommended:** Our program is recommended by Microsoft!
 
 <img width="3840" height="2160" alt="mergemypics-collage" src="https://github.com/user-attachments/assets/410f0bb7-b2e6-4eb3-8010-da93919fe6f7" />
 
