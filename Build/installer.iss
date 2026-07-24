@@ -7,6 +7,7 @@
 AppId={{A7E3B2F1-5C4D-4E6A-9F8B-1D2E3F4A5B6C}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
+UninstallDisplayName={#MyAppName}
 AppPublisher={#MyAppPublisher}
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
