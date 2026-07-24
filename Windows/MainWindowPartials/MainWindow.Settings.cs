@@ -1233,7 +1233,7 @@ namespace Spectre; public partial class MainWindow {
 		};
 		System.Windows.Controls.Image logoImg = new System.Windows.Controls.Image
 		{
-			Source = new BitmapImage(new Uri("pack://application:,,,/Icons/highresapp.png")),
+			Source = new BitmapImage(new Uri("pack://application:,,,/Resources/Icons/highresapp.png")),
 			Width = 40.0,
 			Height = 40.0,
 			HorizontalAlignment = System.Windows.HorizontalAlignment.Center,
@@ -1541,7 +1541,7 @@ namespace Spectre; public partial class MainWindow {
 	{
 		if (string.IsNullOrEmpty(_customFontPath) || !System.IO.File.Exists(_customFontPath))
 		{
-			base.FontFamily = new System.Windows.Media.FontFamily(new Uri("pack://application:,,,/"), "./Fonts/#Montserrat, Segoe UI Emoji, Segoe UI Symbol");
+			base.FontFamily = new System.Windows.Media.FontFamily(new Uri("pack://application:,,,/"), "./Resources/Fonts/#Montserrat, Segoe UI Emoji, Segoe UI Symbol");
 			return;
 		}
 		try
@@ -1558,7 +1558,7 @@ namespace Spectre; public partial class MainWindow {
 		}
 		catch
 		{
-			base.FontFamily = new System.Windows.Media.FontFamily(new Uri("pack://application:,,,/"), "./Fonts/#Montserrat, Segoe UI Emoji, Segoe UI Symbol");
+			base.FontFamily = new System.Windows.Media.FontFamily(new Uri("pack://application:,,,/"), "./Resources/Fonts/#Montserrat, Segoe UI Emoji, Segoe UI Symbol");
 		}
 	}
 

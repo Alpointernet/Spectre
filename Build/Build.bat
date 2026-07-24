@@ -7,11 +7,11 @@ echo ========================================
 echo.
 
 echo [1/3] Cleaning previous builds...
-dotnet clean > nul
-if exist "publish" rmdir /s /q "publish"
+dotnet clean .. > nul
+if exist "..\publish" rmdir /s /q "..\publish"
 
 echo [2/3] Publishing Spectre...
-dotnet publish -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -o "publish"
+dotnet publish .. -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -o "..\publish"
 if %errorlevel% neq 0 (
     echo.
     echo [ERROR] Publishing failed! Please check your code for errors.

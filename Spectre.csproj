@@ -17,17 +17,17 @@
     <CheckForOverflowUnderflow>False</CheckForOverflowUnderflow>
   </PropertyGroup>
   <PropertyGroup>
-    <ApplicationIcon>Icons\app.ico</ApplicationIcon>
+    <ApplicationIcon>Resources\Icons\app.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
-    <None Remove="Icons\app.png" />
-    <None Remove="Icons\highresapp.png" />
-    <None Remove="Icons\*.svg" />
-    <None Remove="Fonts\montserrat.ttf" />
-    <Resource Include="Icons\*.svg" />
-    <Resource Include="Icons\app.png" />
-    <Resource Include="Icons\highresapp.png" />
-    <Resource Include="Fonts\montserrat.ttf" />
+    <None Remove="Resources\Icons\app.png" />
+    <None Remove="Resources\Icons\highresapp.png" />
+    <None Remove="Resources\Icons\*.svg" />
+    <None Remove="Resources\Fonts\montserrat.ttf" />
+    <Resource Include="Resources\Icons\*.svg" />
+    <Resource Include="Resources\Icons\app.png" />
+    <Resource Include="Resources\Icons\highresapp.png" />
+    <Resource Include="Resources\Fonts\montserrat.ttf" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="YoutubeExplode" Version="6.*" />

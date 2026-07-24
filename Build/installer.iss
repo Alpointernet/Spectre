@@ -1,4 +1,4 @@
-﻿#define MyAppName "Spectre"
+#define MyAppName "Spectre"
 #define MyAppVersion "1.0"
 #define MyAppExeName "Spectre.exe"
 #define MyAppPublisher "Spectre"
@@ -10,11 +10,11 @@ AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
-OutputDir={#SourcePath}\Output
+OutputDir={#SourcePath}\..\Output
 OutputBaseFilename=SpectreInstaller
 Compression=lzma
 SolidCompression=yes
-SetupIconFile={#SourcePath}\Icons\app.ico
+SetupIconFile={#SourcePath}\..\Resources\Icons\app.ico
 UninstallDisplayIcon={app}\{#MyAppExeName}
 WizardStyle=modern
 PrivilegesRequired=lowest
@@ -26,7 +26,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: "{#SourcePath}\publish\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#SourcePath}\..\publish\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
