@@ -31,11 +31,10 @@ using System.Windows.Shapes;
 using System.Windows.Shell;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.Messaging;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Win32;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
-using SharpVectors.Converters;
+
+using System.Text.Json.Nodes;
+using System.Text.Json;
 using Spectre.Services;
 using Spectre.ViewModels;
 using Spectre.Views;
@@ -199,9 +198,9 @@ namespace Spectre; public partial class MainWindow {
 				VerticalAlignment = VerticalAlignment.Center,
 				Margin = new Thickness(0.0, 60.0, 0.0, 0.0)
 			};
-			loginRequiredPanel.Children.Add(new SvgViewbox
+			loginRequiredPanel.Children.Add(new System.Windows.Controls.Image
 			{
-				Source = new Uri("Icons/lock.svg", UriKind.Relative),
+				Source = (System.Windows.Media.DrawingImage)System.Windows.Application.Current.FindResource("lockIcon"),
 				Width = 52.0,
 				Height = 52.0,
 				HorizontalAlignment = System.Windows.HorizontalAlignment.Center,
@@ -236,7 +235,7 @@ namespace Spectre; public partial class MainWindow {
 		}
 		try
 		{
-			if ((await BackendService.Instance.GetHistoryAsync(CancellationToken.None))["data"] is JArray { Count: >0 } items)
+			if ((await BackendService.Instance.GetHistoryAsync(CancellationToken.None))["data"] is JsonArray { Count: >0 } items)
 			{
 				pagePanel.Children.Add(CreateListHeader(hasNumber: true, hasAlbum: true, hasDuration: true));
 				StackPanel trackListPanel = new StackPanel
@@ -244,7 +243,7 @@ namespace Spectre; public partial class MainWindow {
 					Margin = new Thickness(0.0, 0.0, 0.0, 20.0)
 				};
 				int count = 0;
-				foreach (JToken item in items)
+				foreach (JsonNode item in items)
 				{
 					if (count >= _playHistoryCount)
 					{
@@ -254,18 +253,18 @@ namespace Spectre; public partial class MainWindow {
 					string videoId = ((string?)item["videoId"]) ?? "";
 					string played = ((string?)item["plays"]) ?? ((string?)item["album"]?["name"]) ?? ((string?)item["album"]) ?? "";
 					string duration = ((string?)item["duration"]) ?? "";
-					JArray artistsArr = item["artists"] as JArray;
+					JsonArray artistsArr = item["artists"] as JsonArray;
 					string artistStr = "";
 					if (artistsArr != null)
 					{
 						List<string> artistNames = new List<string>();
-						foreach (JToken a in artistsArr)
+						foreach (JsonNode a in artistsArr)
 						{
 							artistNames.Add(((string?)a["name"]) ?? "");
 						}
 						artistStr = string.Join(", ", artistNames);
 					}
-					JArray thumbArr = item["thumbnails"] as JArray;
+					JsonArray thumbArr = item["thumbnails"] as JsonArray;
 					string thumbUrl = "";
 					if (thumbArr != null && thumbArr.Count > 0)
 					{
@@ -425,3 +424,7 @@ namespace Spectre; public partial class MainWindow {
 		await LoadStatsPageAsync(force);
 	}
 }
+
+
+
+

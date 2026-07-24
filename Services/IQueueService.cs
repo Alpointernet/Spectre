@@ -1,10 +1,10 @@
-using Newtonsoft.Json.Linq;
+using System.Text.Json.Nodes;
 
 namespace Spectre.Services;
 
 public interface IQueueService
 {
-	JArray CurrentQueue { get; set; }
+	JsonArray CurrentQueue { get; set; }
 
 	int CurrentQueueIndex { get; set; }
 
@@ -12,7 +12,7 @@ public interface IQueueService
 
 	bool IsShuffleOn { get; set; }
 
-	void InitQueueAndShuffle(JArray newQueue, int newIndex);
+	void InitQueueAndShuffle(JsonArray newQueue, int newIndex);
 
 	void ShuffleRemainingQueue();
 

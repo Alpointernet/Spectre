@@ -2,8 +2,7 @@ using System;
 using System.Linq;
 using DiscordRPC;
 using DiscordRPC.Message;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
+
 
 namespace Spectre.Services;
 
@@ -79,7 +78,7 @@ public class DiscordManager : IDisposable
 				State = LimitStr(stateText, 128),
 				Assets = new Assets
 				{
-					// DiscordRPC 1.6.1.70 allows up to 256 chars for image keys (which can be external URLs).
+					// DiscordRPC 1.6.1.70 allows up to 256 chars for System.Windows.Controls.Image keys (which can be external URLs).
 					LargeImageKey = (!string.IsNullOrEmpty(thumbUrl) && thumbUrl.Length <= 256) 
 						? thumbUrl 
 						: (!string.IsNullOrEmpty(_iconUrl) && _iconUrl.Length <= 256 ? _iconUrl : null),
@@ -133,3 +132,4 @@ public class DiscordManager : IDisposable
 		}
 	}
 }
+

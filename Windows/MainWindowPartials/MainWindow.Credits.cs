@@ -31,11 +31,10 @@ using System.Windows.Shapes;
 using System.Windows.Shell;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.Messaging;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Win32;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
-using SharpVectors.Converters;
+
+using System.Text.Json.Nodes;
+using System.Text.Json;
 using Spectre.Services;
 using Spectre.ViewModels;
 using Spectre.Views;
@@ -61,12 +60,12 @@ namespace Spectre; public partial class MainWindow {
 		MainOverlayControl.CreditsOverlayRef.BeginAnimation(UIElement.OpacityProperty, fadeIn);
 		try
 		{
-			JObject json = await BackendService.Instance.GetSongCreditsAsync(videoId, CancellationToken.None);
+			JsonObject json = await BackendService.Instance.GetSongCreditsAsync(videoId, CancellationToken.None);
 			if (json["error"] != null)
 			{
 				throw new Exception(((string?)json["error"]) ?? "Error");
 			}
-			if (!(json["data"] is JObject data) || (data["other_sections"] == null && data["performed_by"] == null && data["written_by"] == null && data["produced_by"] == null && data["music_metadata_provided_by"] == null))
+			if (!(json["data"] is JsonObject data) || (data["other_sections"] == null && data["performed_by"] == null && data["written_by"] == null && data["produced_by"] == null && data["music_metadata_provided_by"] == null))
 			{
 				throw new Exception("No credits data found.");
 			}
@@ -74,16 +73,16 @@ namespace Spectre; public partial class MainWindow {
 			AddSection("performed_by", data);
 			AddSection("written_by", data);
 			AddSection("produced_by", data);
-			if (data["other_sections"] is JArray otherSections)
+			if (data["other_sections"] is JsonArray otherSections)
 			{
-				foreach (JToken item3 in otherSections)
+				foreach (JsonNode item3 in otherSections)
 				{
-					if (!(item3 is JObject sectionObj))
+					if (!(item3 is JsonObject sectionObj))
 					{
 						continue;
 					}
 					string title = ((string?)sectionObj["localized_title"]) ?? "Other";
-					if (!(sectionObj["data"] is JArray { Count: >0 } items))
+					if (!(sectionObj["data"] is JsonArray { Count: >0 } items))
 					{
 						continue;
 					}
@@ -96,7 +95,7 @@ namespace Spectre; public partial class MainWindow {
 						Margin = new Thickness(0.0, 0.0, 0.0, 5.0)
 					};
 					MainOverlayControl.CreditsPanelRef.Children.Add(headerBlock);
-					foreach (JToken item in items)
+					foreach (JsonNode item in items)
 					{
 						TextBlock itemBlock = new TextBlock
 						{
@@ -142,12 +141,12 @@ namespace Spectre; public partial class MainWindow {
 			MainOverlayControl.CreditsLoadingTextRef.Visibility = Visibility.Visible;
 			MainOverlayControl.CreditsLoadingTextRef.Text = "Credits not available.";
 		}
-		void AddSection(string key, JObject rootData)
+		void AddSection(string key, JsonObject rootData)
 		{
-			if (rootData[key] is JObject section)
+			if (rootData[key] is JsonObject section)
 			{
 				string title2 = ((string?)section["localized_title"]) ?? key;
-				if (section["data"] is JArray { Count: >0 } items2)
+				if (section["data"] is JsonArray { Count: >0 } items2)
 				{
 					TextBlock headerBlock2 = new TextBlock
 					{
@@ -158,7 +157,7 @@ namespace Spectre; public partial class MainWindow {
 						Margin = new Thickness(0.0, 0.0, 0.0, 5.0)
 					};
 					MainOverlayControl.CreditsPanelRef.Children.Add(headerBlock2);
-					foreach (JToken item2 in items2)
+					foreach (JsonNode item2 in items2)
 					{
 						TextBlock itemBlock2 = new TextBlock
 						{
@@ -312,3 +311,6 @@ namespace Spectre; public partial class MainWindow {
 		return Math.Max(180.0, paddingHeight + headerHeight + contentHeight);
 	}
 }
+
+
+

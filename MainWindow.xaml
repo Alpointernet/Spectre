@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<Window x:Class="Spectre.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:svgc="http://sharpvectors.codeplex.com/svgc/" xmlns:local="clr-namespace:Spectre" xmlns:views="clr-namespace:Spectre.Views" xmlns:helpers="clr-namespace:Spectre.Helpers" xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf" Title="Spectre" Height="900" Width="1515" MinWidth="1100" MinHeight="600" WindowStartupLocation="CenterScreen" WindowStyle="None" ResizeMode="CanResize" FontFamily="/Fonts/#Montserrat, Segoe UI Emoji, Segoe UI Symbol" TextOptions.TextFormattingMode="Ideal" TextOptions.TextRenderingMode="ClearType" Background="#0D0D12" Foreground="{DynamicResource TextBrush}" Icon="pack://application:,,,/Icons/highresapp.png">
+<Window x:Class="Spectre.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"  xmlns:local="clr-namespace:Spectre" xmlns:views="clr-namespace:Spectre.Views" xmlns:helpers="clr-namespace:Spectre.Helpers" xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf" Title="Spectre" Height="900" Width="1515" MinWidth="1100" MinHeight="600" WindowStartupLocation="CenterScreen" WindowStyle="None" ResizeMode="CanResize" FontFamily="/Fonts/#Montserrat, Segoe UI Emoji, Segoe UI Symbol" TextOptions.TextFormattingMode="Ideal" TextOptions.TextRenderingMode="ClearType" Background="#0D0D12" Foreground="{DynamicResource TextBrush}" Icon="pack://application:,,,/Icons/highresapp.png">
   <WindowChrome.WindowChrome>
     <WindowChrome CaptionHeight="60" ResizeBorderThickness="6" CornerRadius="0" GlassFrameThickness="-1" UseAeroCaptionButtons="False" />
   </WindowChrome.WindowChrome>
@@ -631,16 +631,18 @@
     <views:QueueControl x:Name="MainQueueControl" QueueScrollViewer_PreviewMouseWheel="QueueScrollViewer_PreviewMouseWheel" Grid.Row="0" Grid.RowSpan="1" Grid.Column="3" />
     <views:PlayerBarControl x:Name="MainPlayerBarControl" PlayerThumbnailBorder_MouseDown_Event="PlayerThumbnailBorder_MouseDown" ShuffleBtn_Click_Event="ShuffleBtn_Click" PrevBtn_Click_Event="PrevBtn_Click" PlayPauseBtn_Click_Event="PlayPauseBtn_Click" NextBtn_Click_Event="NextBtn_Click" RepeatBtn_Click_Event="RepeatBtn_Click" Timeline_MouseLeftButtonDown_Event="Timeline_MouseLeftButtonDown" Timeline_MouseMove_Event="Timeline_MouseMove" Timeline_MouseLeftButtonUp_Event="Timeline_MouseLeftButtonUp" Timeline_MouseLeave_Event="Timeline_MouseLeave" QueueBtn_Click_Event="QueueBtn_Click" LyricsBtn_Click_Event="LyricsBtn_Click" VolumeIcon_Click_Event="VolumeIcon_Click" VolumeSlider_ValueChanged_Event="VolumeSlider_ValueChanged" VolumeSlider_PreviewMouseWheel_Event="VolumeSlider_PreviewMouseWheel" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="4" Panel.ZIndex="20" />
     <views:OverlayControl x:Name="MainOverlayControl" LargeCoverOverlay_MouseLeftButtonDown_Event="LargeCoverOverlay_MouseLeftButtonDown" CreditsOverlay_MouseLeftButtonDown_Event="CreditsOverlay_MouseLeftButtonDown" CreditsBorder_MouseLeftButtonDown_Event="CreditsBorder_MouseLeftButtonDown" CloseCreditsBtn_Click_Event="CloseCreditsBtn_Click" CreditsScrollViewer_PreviewMouseWheel_Event="CreditsScrollViewer_PreviewMouseWheel" GlobalErrorRetryBtn_MouseEnter_Event="GlobalErrorRetryBtn_MouseEnter" GlobalErrorRetryBtn_MouseLeave_Event="GlobalErrorRetryBtn_MouseLeave" GlobalErrorRetryBtn_Click_Event="GlobalErrorRetryBtn_Click" CloseLogButton_Click_Event="CloseLogButton_Click" Grid.Row="0" Grid.RowSpan="3" Grid.Column="0" Grid.ColumnSpan="4" Panel.ZIndex="1000" />
-    <StackPanel Grid.Row="0" Grid.ColumnSpan="4" ZIndex="3000" WindowChrome.IsHitTestVisibleInChrome="True" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,14,14,0">
-      <Button Name="MinBtn" Style="{StaticResource WindowControlButtonStyle}" ToolTip="Minimize" Click="MinBtn_Click">
-        <svgc:SvgViewbox Source="Icons/minimize.svg" Width="12" Height="12" Opacity="0.82" />
+    <StackPanel Grid.Row="0" Grid.ColumnSpan="4" ZIndex="3000" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,14,14,0">
+      <Button Name="MinBtn" WindowChrome.IsHitTestVisibleInChrome="True" Style="{StaticResource WindowControlButtonStyle}" ToolTip="Minimize" Click="MinBtn_Click">
+        <Image Source="{StaticResource minimizeIcon}" Width="12" Height="12" Opacity="0.82" IsHitTestVisible="False" />
       </Button>
-      <Button Name="MaxBtn" Style="{StaticResource WindowControlButtonStyle}" ToolTip="Maximize" Margin="12,0,0,0" Click="MaxBtn_Click">
-        <svgc:SvgViewbox Name="MaxBtnIcon" Source="Icons/maximize.svg" Width="12" Height="12" Opacity="0.82" />
+      <Button Name="MaxBtn" WindowChrome.IsHitTestVisibleInChrome="True" Style="{StaticResource WindowControlButtonStyle}" ToolTip="Maximize" Margin="12,0,0,0" Click="MaxBtn_Click">
+        <Image Name="MaxBtnIcon" Source="{StaticResource maximizeIcon}" Width="12" Height="12" Opacity="0.82" IsHitTestVisible="False" />
       </Button>
-      <Button Name="CloseBtn" Style="{StaticResource CloseWindowControlButtonStyle}" ToolTip="Close" Margin="12,0,0,0" Click="CloseBtn_Click">
-        <svgc:SvgViewbox Source="Icons/close.svg" Width="12" Height="12" Opacity="0.9" />
+      <Button Name="CloseBtn" WindowChrome.IsHitTestVisibleInChrome="True" Style="{StaticResource CloseWindowControlButtonStyle}" ToolTip="Close" Margin="12,0,0,0" Click="CloseBtn_Click">
+        <Image Source="{StaticResource closeIcon}" Width="12" Height="12" Opacity="0.9" IsHitTestVisible="False" />
       </Button>
     </StackPanel>
   </Grid>
 </Window>
+
+

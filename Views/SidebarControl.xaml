@@ -12,13 +12,13 @@
         <TextBlock Name="SidebarTitleText" Text="Spectre" Foreground="{DynamicResource TextBrush}" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" />
       </StackPanel>
       <StackPanel Name="HomeNavPanel" Margin="20,60,20,10" Grid.Row="0">
-        <views:SidebarTab x:Name="HomeNavBorder" Text="Home" IconSource="Icons/home.svg" PageId="home" Command="{Binding NavigateCommand}" />
-        <views:SidebarTab x:Name="ExploreNavBorder" Text="Explore" IconSource="Icons/explore.svg" PageId="explore" Command="{Binding NavigateCommand}" />
-        <views:SidebarTab x:Name="RadioNavBorder" Text="Radio" IconSource="Icons/radio.svg" PageId="radio_page" Command="{Binding NavigateCommand}" />
-        <views:SidebarTab x:Name="PlaylistsNavBorder" Text="Playlists" IconSource="Icons/playlist.svg" PageId="playlists_page" Visibility="Collapsed" Command="{Binding NavigateCommand}" />
-        <views:SidebarTab x:Name="AlbumsNavBorder" Text="Albums" IconSource="Icons/album.svg" PageId="albums_page" Visibility="Collapsed" Command="{Binding NavigateCommand}" />
-        <views:SidebarTab x:Name="LocalNavBorder" Text="Local" IconSource="Icons/vinyl.svg" PageId="local_files" Command="{Binding NavigateCommand}" />
-        <views:SidebarTab x:Name="StatsNavBorder" Text="Stats" IconSource="Icons/stats.svg" PageId="stats_page" Command="{Binding NavigateCommand}" />
+        <views:SidebarTab x:Name="HomeNavBorder" Text="Home" IconSource="{StaticResource homeIcon}" PageId="home" Command="{Binding NavigateCommand}" />
+        <views:SidebarTab x:Name="ExploreNavBorder" Text="Explore" IconSource="{StaticResource exploreIcon}" PageId="explore" Command="{Binding NavigateCommand}" />
+        <views:SidebarTab x:Name="RadioNavBorder" Text="Radio" IconSource="{StaticResource radioIcon}" PageId="radio_page" Command="{Binding NavigateCommand}" />
+        <views:SidebarTab x:Name="PlaylistsNavBorder" Text="Playlists" IconSource="{StaticResource playlistIcon}" PageId="playlists_page" Visibility="Collapsed" Command="{Binding NavigateCommand}" />
+        <views:SidebarTab x:Name="AlbumsNavBorder" Text="Albums" IconSource="{StaticResource albumIcon}" PageId="albums_page" Visibility="Collapsed" Command="{Binding NavigateCommand}" />
+        <views:SidebarTab x:Name="LocalNavBorder" Text="Local" IconSource="{StaticResource vinylIcon}" PageId="local_files" Command="{Binding NavigateCommand}" />
+        <views:SidebarTab x:Name="StatsNavBorder" Text="Stats" IconSource="{StaticResource statsIcon}" PageId="stats_page" Command="{Binding NavigateCommand}" />
       </StackPanel>
       <Grid Grid.Row="1">
         <Grid.OpacityMask>
@@ -29,7 +29,7 @@
                 <GradientStop x:Name="BottomFadeStop" Color="#FFFFFFFF" Offset="1"/>
             </LinearGradientBrush>
         </Grid.OpacityMask>
-        <ListBox Name="LibraryPanel" Margin="20,0,20,20" Padding="0" Background="#00FFFFFF" BorderThickness="0" ScrollViewer.VerticalScrollBarVisibility="Hidden" ScrollViewer.HorizontalScrollBarVisibility="Disabled" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" VirtualizingPanel.ScrollUnit="Pixel" ScrollViewer.ScrollChanged="LibraryPanel_ScrollChanged" PreviewMouseWheel="LibraryPanel_PreviewMouseWheel">
+        <ListBox Name="LibraryPanel" UseLayoutRounding="True" SnapsToDevicePixels="True" Margin="20,0,20,20" Padding="0" Background="#00FFFFFF" BorderThickness="0" ScrollViewer.VerticalScrollBarVisibility="Hidden" ScrollViewer.HorizontalScrollBarVisibility="Disabled" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" VirtualizingPanel.ScrollUnit="Pixel" ScrollViewer.ScrollChanged="LibraryPanel_ScrollChanged" PreviewMouseWheel="LibraryPanel_PreviewMouseWheel">
           <ItemsControl.ItemContainerStyle>
             <Style TargetType="{x:Type ListBoxItem}">
               <Setter Property="Padding" Value="0" />
@@ -75,3 +75,5 @@
     </Grid>
   </Border>
 </UserControl>
+
+

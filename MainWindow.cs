@@ -31,11 +31,10 @@ using System.Windows.Shapes;
 using System.Windows.Shell;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.Messaging;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Win32;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
-using SharpVectors.Converters;
+
+using System.Text.Json.Nodes;
+using System.Text.Json;
 using Spectre.Services;
 using Spectre.ViewModels;
 using Spectre.Views;
@@ -144,7 +143,7 @@ public partial class MainWindow : Window
 
 	private Random _rand = new Random();
 
-	private ConcurrentDictionary<string, Task<JObject>> _lyricsTasks = new ConcurrentDictionary<string, Task<JObject>>();
+	private ConcurrentDictionary<string, Task<JsonObject>> _lyricsTasks = new ConcurrentDictionary<string, Task<JsonObject>>();
 
 	private StackPanel _homeCachePanel = new StackPanel();
 
@@ -364,9 +363,9 @@ public partial class MainWindow : Window
 
 	private bool _pauseRequested;
 
-	private JArray? _cachedPlaylists;
+	private JsonArray? _cachedPlaylists;
 
-	private JArray? _cachedAlbums;
+	private JsonArray? _cachedAlbums;
 
 	private string _cachedLibraryError;
 
@@ -533,7 +532,7 @@ public partial class MainWindow : Window
 
 	private List<Border> _lazyVirtualizationElements = new List<Border>();
 
-	private List<JToken> _allHeroCandidates = new List<JToken>();
+	private List<JsonNode> _allHeroCandidates = new List<JsonNode>();
 
 	private bool _isVirtualizationQueued;
 
@@ -592,7 +591,7 @@ public partial class MainWindow : Window
 		}
 	}
 
-	private JArray? _currentQueue
+	private JsonArray? _currentQueue
 	{
 		get
 		{
@@ -600,7 +599,7 @@ public partial class MainWindow : Window
 		}
 		set
 		{
-			_queueService.CurrentQueue = value ?? new JArray();
+			_queueService.CurrentQueue = value ?? new JsonArray();
 		}
 	}
 
@@ -662,7 +661,7 @@ public partial class MainWindow : Window
 		if (total > 0)
 		{
 			MainPlayerBarControl.TimelineSliderRef.Maximum = total;
-			PlayerBarViewModel vm = App.Current.Services.GetService<PlayerBarViewModel>();
+			PlayerBarViewModel vm = App.Current.PlayerBarViewModel;
 			if (vm != null)
 			{
 				vm.TotalTimeText = TimeSpan.FromMilliseconds(total).ToString("m\\:ss");
@@ -723,7 +722,7 @@ public partial class MainWindow : Window
 				{
 					MainPlayerBarControl.TimelineSliderRef.Value = currentVal + ((double)current - currentVal) * 0.25;
 				}
-				PlayerBarViewModel vmCurrent = App.Current.Services.GetService<PlayerBarViewModel>();
+				PlayerBarViewModel vmCurrent = App.Current.PlayerBarViewModel;
 				if (vmCurrent != null)
 				{
 					vmCurrent.CurrentTimeText = TimeSpan.FromMilliseconds(current).ToString("m\\:ss");
@@ -766,7 +765,7 @@ public partial class MainWindow : Window
 			}
 			else
 			{
-				PlayerBarViewModel vmTime = App.Current.Services.GetService<PlayerBarViewModel>();
+				PlayerBarViewModel vmTime = App.Current.PlayerBarViewModel;
 				if (vmTime != null)
 				{
 					vmTime.CurrentTimeText = TimeSpan.FromMilliseconds(current).ToString("m\\:ss");
@@ -871,7 +870,7 @@ public partial class MainWindow : Window
 		base.OnStateChanged(e);
 		if (MaxBtnIcon != null)
 		{
-			MaxBtnIcon.Source = new Uri((base.WindowState == WindowState.Maximized) ? "Icons/restoredown.svg" : "Icons/maximize.svg", UriKind.Relative);
+			MaxBtnIcon.Source = (ImageSource)System.Windows.Application.Current.FindResource((base.WindowState == WindowState.Maximized) ? "restoredownIcon" : "maximizeIcon");
 		}
 		if (RootGrid != null)
 		{
@@ -945,9 +944,10 @@ public partial class MainWindow : Window
 
 	public MainWindow()
 	{
-		_queueService = App.Current.Services.GetService<IQueueService>();
+		_queueService = App.Current.QueueService;
 		Instance = this;
 		InitializeComponent();
+		LoadWindowBounds();
 		MainSidebar.SizeChanged += (s, e) =>
 		{
 			if (_isSidebarCoverExpanded && !_isSidebarMinimized)
@@ -1157,7 +1157,7 @@ public partial class MainWindow : Window
 			string p = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Spectre", "session.json");
 			if (System.IO.File.Exists(p))
 			{
-				JObject j = JObject.Parse(System.IO.File.ReadAllText(p));
+				JsonObject j = JsonNode.Parse(System.IO.File.ReadAllText(p))!.AsObject();
 				if (j["LoudnessNormalization"] != null)
 				{
 					_ = (bool)j["LoudnessNormalization"];
@@ -1177,7 +1177,7 @@ public partial class MainWindow : Window
 		}
 		_initPlaybackTask = Task.Run(() =>
 		{
-			IPlaybackService playbackService = App.Current.Services.GetService<IPlaybackService>();
+			IPlaybackService playbackService = App.Current.PlaybackService;
 			base.Dispatcher.Invoke(delegate
 			{
 				_player = ((PlaybackService)playbackService)._engine;
@@ -1285,12 +1285,12 @@ public partial class MainWindow : Window
 		}
 		base.PreviewKeyDown += MainWindow_PreviewKeyDown;
 		RegisterMvvmMessages();
-		QueueViewModel queueVm = App.Current.Services.GetService<QueueViewModel>();
+		QueueViewModel queueVm = App.Current.QueueViewModel;
 		if (queueVm != null)
 		{
 			MainQueueControl.DataContext = queueVm;
 		}
-		SidebarViewModel sidebarVm = App.Current.Services.GetService<SidebarViewModel>();
+		SidebarViewModel sidebarVm = App.Current.SidebarViewModel;
 		if (sidebarVm != null)
 		{
 			MainSidebar.DataContext = sidebarVm;
@@ -1302,7 +1302,7 @@ public partial class MainWindow : Window
 		}, DispatcherPriority.Background);
 		base.Loaded += async delegate
 		{
-			LoadLastSession();
+			await LoadLastSessionAsync();
 			ResetShuffleState();
 			if (System.IO.File.Exists(BackendService.AuthFilePath))
 			{
@@ -1310,7 +1310,7 @@ public partial class MainWindow : Window
 				{
 					try
 					{
-						JObject info = await BackendService.Instance.GetAccountInfoAsync(CancellationToken.None);
+						JsonObject info = await BackendService.Instance.GetAccountInfoAsync(CancellationToken.None);
 						string name = ((string?)info["data"]?["accountName"]) ?? "User";
 						string photo = ((string?)info["data"]?["accountPhoto"]) ?? "";
 						if (name == "User" && string.IsNullOrEmpty(photo))
@@ -1403,7 +1403,7 @@ public partial class MainWindow : Window
 			MainWindow main = (MainWindow)r;
 			main._currentQueueIndex = m.TargetIndex;
 			main._isTrackLoading = true;
-			PlayerBarViewModel vm = App.Current.Services.GetService<PlayerBarViewModel>();
+			PlayerBarViewModel vm = App.Current.PlayerBarViewModel;
 			if (vm != null)
 			{
 				vm.CurrentTimeText = "Loading...";
@@ -1737,13 +1737,13 @@ public partial class MainWindow : Window
 
 							if (sapisidCookie != null)
 							{
-								string json = JsonConvert.SerializeObject(new Dictionary<string, string>
+								string json = JsonSerializer.Serialize(new Dictionary<string, string>
 								{
 									{ "cookie", cookieString },
 									{ "sapisid", sapisidCookie.Value },
 									{ "userAgent", webView.CoreWebView2.Settings.UserAgent },
 									{ "authUser", capturedAuthUser }
-								}, Formatting.Indented);
+								}, new JsonSerializerOptions { WriteIndented = true });
 
 								System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(BackendService.AuthFilePath));
 								BackendService.SaveAuthData(json);
@@ -2414,3 +2414,9 @@ public partial class MainWindow : Window
 	}
 
 }
+
+
+
+
+
+

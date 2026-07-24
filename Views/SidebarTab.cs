@@ -10,7 +10,7 @@ public partial class SidebarTab : UserControl
 {
 	public static readonly DependencyProperty TextProperty = DependencyProperty.Register("Text", typeof(string), typeof(SidebarTab), new PropertyMetadata(""));
 
-	public static readonly DependencyProperty IconSourceProperty = DependencyProperty.Register("IconSource", typeof(string), typeof(SidebarTab), new PropertyMetadata("", OnIconSourceChanged));
+	public static readonly DependencyProperty IconSourceProperty = DependencyProperty.Register("IconSource", typeof(System.Windows.Media.ImageSource), typeof(SidebarTab), new PropertyMetadata(null, OnIconSourceChanged));
 
 	public static readonly DependencyProperty PageIdProperty = DependencyProperty.Register("PageId", typeof(string), typeof(SidebarTab), new PropertyMetadata(""));
 
@@ -40,11 +40,11 @@ public partial class SidebarTab : UserControl
 		}
 	}
 
-	public string IconSource
+	public System.Windows.Media.ImageSource IconSource
 	{
 		get
 		{
-			return (string)GetValue(IconSourceProperty);
+			return (System.Windows.Media.ImageSource)GetValue(IconSourceProperty);
 		}
 		set
 		{
@@ -81,9 +81,9 @@ public partial class SidebarTab : UserControl
 
 	private static void OnIconSourceChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
 	{
-		if (d is SidebarTab tab && e.NewValue is string source && !string.IsNullOrEmpty(source))
+		if (d is SidebarTab tab && e.NewValue is System.Windows.Media.ImageSource source)
 		{
-			tab.IconViewbox.Source = new Uri(source, UriKind.RelativeOrAbsolute);
+			tab.IconViewbox.Source = source;
 		}
 	}
 

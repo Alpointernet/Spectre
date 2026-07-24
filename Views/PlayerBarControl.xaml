@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<UserControl x:Class="Spectre.Views.PlayerBarControl" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:d="http://schemas.microsoft.com/expression/blend/2008" xmlns:local="clr-namespace:Spectre.Views" xmlns:svgc="http://sharpvectors.codeplex.com/svgc/">
+<UserControl x:Class="Spectre.Views.PlayerBarControl" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:d="http://schemas.microsoft.com/expression/blend/2008" xmlns:local="clr-namespace:Spectre.Views" >
   <Border Background="{DynamicResource BottomBarBrush}" BorderBrush="#1F1F2E" BorderThickness="0,1,0,0">
     <Grid Background="#00FFFFFF">
       <Grid.ColumnDefinitions>
@@ -18,7 +18,7 @@
               <RotateTransform x:Name="OldPlayerThumbnailRotation" Angle="0" />
             </Border.RenderTransform>
             <Grid>
-              <svgc:SvgViewbox Name="OldPlayerThumbnailFallback" Source="Icons/musicnote.svg" Width="20" Height="20" Opacity="0.5" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Visible" />
+              <Image Name="OldPlayerThumbnailFallback" Source="{StaticResource musicnoteIcon}" Width="20" Height="20" Opacity="0.5" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Visible" />
               <Rectangle Name="OldPlayerThumbnail" RadiusX="4" RadiusY="4" RenderOptions.BitmapScalingMode="HighQuality" />
             </Grid>
           </Border>
@@ -41,7 +41,7 @@
               <RotateTransform x:Name="PlayerThumbnailRotation" Angle="0" />
             </Border.RenderTransform>
             <Grid>
-              <svgc:SvgViewbox Name="PlayerThumbnailFallback" Source="Icons/musicnote.svg" Width="20" Height="20" Opacity="0.5" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Visible" />
+              <Image Name="PlayerThumbnailFallback" Source="{StaticResource musicnoteIcon}" Width="20" Height="20" Opacity="0.5" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Visible" />
               <Rectangle Name="PlayerThumbnailOld" Opacity="0" RadiusX="4" RadiusY="4" RenderOptions.BitmapScalingMode="HighQuality" />
               <Rectangle Name="PlayerThumbnail" RadiusX="4" RadiusY="4" RenderOptions.BitmapScalingMode="HighQuality" />
             </Grid>
@@ -73,7 +73,7 @@
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,3,0,4">
           <Button Name="ShuffleBtn" Style="{DynamicResource IconButtonStyle}" Width="30" Height="30" Margin="0,0,15,0" Command="{Binding ToggleShuffleCommand}">
             <Grid>
-              <svgc:SvgViewbox Name="ShuffleIconOff" Source="Icons/shuffle.svg" Width="14" Height="14" />
+              <Image Name="ShuffleIconOff" Source="{StaticResource shuffleIcon}" Width="14" Height="14" />
               <Rectangle Name="ShuffleIconOn" Fill="{DynamicResource AccentGradient}" Width="14" Height="14" Visibility="Collapsed">
                 <Rectangle.OpacityMask>
                   <VisualBrush Visual="{Binding ElementName=ShuffleIconOff}" Stretch="None" />
@@ -82,7 +82,7 @@
             </Grid>
           </Button>
           <Button Name="PrevBtn" Style="{DynamicResource IconButtonStyle}" Width="30" Height="30" Margin="0,0,10,0" Command="{Binding PrevCommand}">
-            <svgc:SvgViewbox Source="Icons/prev.svg" Width="14" Height="14" />
+            <Image Source="{StaticResource prevIcon}" Width="14" Height="14" />
           </Button>
           <Button Name="PlayPauseBtn" Width="32" Height="32" Background="#FFFFFFFF" BorderThickness="0" Cursor="Hand" Command="{Binding PlayPauseCommand}">
             <FrameworkElement.Resources>
@@ -277,8 +277,8 @@
               </ResourceDictionary>
             </FrameworkElement.Resources>
             <Grid Width="32" Height="32">
-              <svgc:SvgViewbox Name="PlayIcon" Source="Icons/play.svg" Visibility="Collapsed" Width="0" Height="0" />
-              <svgc:SvgViewbox Name="PauseIcon" Source="Icons/pause.svg" Visibility="Collapsed" Width="0" Height="0" />
+              <Image Name="PlayIcon" Source="{StaticResource playIcon}" Visibility="Collapsed" Width="0" Height="0" />
+              <Image Name="PauseIcon" Source="{StaticResource pauseIcon}" Visibility="Collapsed" Width="0" Height="0" />
               <Path Fill="#101015" Stretch="None" HorizontalAlignment="Left" VerticalAlignment="Top">
                 <UIElement.RenderTransform>
                   <TranslateTransform X="-1" />
@@ -311,11 +311,11 @@
             </Grid>
           </Button>
           <Button Name="NextBtn" Style="{DynamicResource IconButtonStyle}" Width="30" Height="30" Margin="10,0,0,0" Command="{Binding NextCommand}">
-            <svgc:SvgViewbox Source="Icons/next.svg" Width="14" Height="14" />
+            <Image Source="{StaticResource nextIcon}" Width="14" Height="14" />
           </Button>
           <Button Name="RepeatBtn" Style="{DynamicResource IconButtonStyle}" Width="30" Height="30" Margin="15,0,0,0" Command="{Binding ToggleRepeatCommand}">
             <Grid>
-              <svgc:SvgViewbox Name="RepeatIconOff" Source="Icons/repeat.svg" Width="14" Height="14" />
+              <Image Name="RepeatIconOff" Source="{StaticResource repeatIcon}" Width="14" Height="14" />
               <Rectangle Name="RepeatIconOn" Fill="{DynamicResource AccentGradient}" Width="14" Height="14" Visibility="Collapsed">
                 <Rectangle.OpacityMask>
                   <VisualBrush Visual="{Binding ElementName=RepeatIconOff}" Stretch="None" />
@@ -353,7 +353,7 @@
       <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,30,0" VerticalAlignment="Center">
         <Button Name="QueueBtn" Style="{DynamicResource IconButtonStyle}" Margin="0,0,10,0" ToolTip="Queue" Command="{Binding ToggleQueueCommand}">
           <Grid>
-            <svgc:SvgViewbox Name="QueueIconOff" Source="Icons/queue.svg" Width="16" Height="16" />
+            <Image Name="QueueIconOff" Source="{StaticResource queueIcon}" Width="16" Height="16" />
             <Rectangle Name="QueueIconOn" Fill="{DynamicResource AccentGradient}" Width="16" Height="16" Visibility="Collapsed">
               <Rectangle.OpacityMask>
                 <VisualBrush Visual="{Binding ElementName=QueueIconOff}" Stretch="None" />
@@ -363,7 +363,7 @@
         </Button>
         <Button Name="LyricsBtn" Style="{DynamicResource IconButtonStyle}" Margin="0,0,10,0" ToolTip="Lyrics" Command="{Binding ToggleLyricsCommand}">
           <Grid>
-            <svgc:SvgViewbox Name="LyricsIconOff" Source="Icons/lyrics.svg" Width="16" Height="16" />
+            <Image Name="LyricsIconOff" Source="{StaticResource lyricsIcon}" Width="16" Height="16" />
             <Rectangle Name="LyricsIconOn" Fill="{DynamicResource AccentGradient}" Width="16" Height="16" Visibility="Collapsed">
               <Rectangle.OpacityMask>
                 <VisualBrush Visual="{Binding ElementName=LyricsIconOff}" Stretch="None" />
@@ -372,7 +372,7 @@
           </Grid>
         </Button>
         <Button Style="{DynamicResource IconButtonStyle}" Margin="0,0,10,0" Click="VolumeIcon_Click">
-          <svgc:SvgViewbox Name="VolumeIcon" Source="Icons/volume.svg" Width="16" Height="16" />
+          <Image Name="VolumeIcon" Source="{StaticResource volumeIcon}" Width="16" Height="16" />
         </Button>
         <Grid Width="100" VerticalAlignment="Center">
           <Slider Name="VolumeSlider" Style="{DynamicResource ModernSlider}" Minimum="0" Maximum="100" Value="100" IsHitTestVisible="False" ValueChanged="VolumeSlider_ValueChanged" />
@@ -382,3 +382,5 @@
     </Grid>
   </Border>
 </UserControl>
+
+

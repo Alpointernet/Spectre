@@ -31,11 +31,10 @@ using System.Windows.Shapes;
 using System.Windows.Shell;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.Messaging;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Win32;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
-using SharpVectors.Converters;
+
+using System.Text.Json.Nodes;
+using System.Text.Json;
 using Spectre.Services;
 using Spectre.ViewModels;
 using Spectre.Views;
@@ -67,15 +66,15 @@ namespace Spectre; public partial class MainWindow {
 			bool isFirstBatch = true;
 			bool isUIUpdated = false;
 			bool heroAdded = false;
-			await foreach (JArray shelves in BackendService.Instance.GetHomeFeedStreamAsync(CancellationToken.None, _homeFeedLimit))
+			await foreach (JsonArray shelves in BackendService.Instance.GetHomeFeedStreamAsync(CancellationToken.None, _homeFeedLimit))
 			{
 				if (shelves == null || shelves.Count == 0)
 				{
 					continue;
 				}
-				List<JToken> sortedResults = shelves.OrderBy(delegate(JToken jToken)
+				List<JsonNode> sortedResults = shelves.OrderBy(delegate(JsonNode? JsonNode)
 				{
-					string text = ((string?)jToken["title"]) ?? "";
+					string text = ((string?)JsonNode?["title"]) ?? "";
 					if (text.ToLower().Contains("quick picks"))
 					{
 						return 0;
@@ -85,18 +84,18 @@ namespace Spectre; public partial class MainWindow {
 				if (!heroAdded)
 				{
 					_allHeroCandidates.Clear();
-					foreach (JToken shelf in sortedResults)
+					foreach (JsonNode shelf in sortedResults)
 					{
-						if (!(shelf["contents"] is JArray contents))
+						if (!(shelf["contents"] is JsonArray contents))
 						{
 							continue;
 						}
 						int idx = 0;
-						foreach (JToken item in contents)
+						foreach (JsonNode item in contents)
 						{
 							string vId = (string?)item["videoId"];
 							string pId = (string?)item["playlistId"];
-							bool isCard = item["isCard"]?.Value<bool>() ?? false;
+							bool isCard = item["isCard"]?.GetValue<bool>() ?? false;
 							string t = ((string?)shelf["title"]) ?? "";
 							if ((t.ToLower().Contains("quick picks") || t.ToLower().Contains("listen again")) && idx < 8)
 							{
@@ -121,9 +120,9 @@ namespace Spectre; public partial class MainWindow {
 							idx++;
 						}
 					}
-					List<JToken> distinctCandidates = new List<JToken>();
+					List<JsonNode> distinctCandidates = new List<JsonNode>();
 					HashSet<string> seenIds = new HashSet<string>();
-					foreach (JToken item2 in _allHeroCandidates)
+					foreach (JsonNode item2 in _allHeroCandidates)
 					{
 						string vid = ((string?)item2["videoId"]) ?? "";
 						if (!seenIds.Contains(vid))
@@ -134,7 +133,7 @@ namespace Spectre; public partial class MainWindow {
 					}
 					if (distinctCandidates.Count > 0)
 					{
-						List<JToken> pickedItems = new List<JToken>();
+						List<JsonNode> pickedItems = new List<JsonNode>();
 						Random rnd = new Random();
 						for (int i = 0; i < 3; i++)
 						{
@@ -142,28 +141,28 @@ namespace Spectre; public partial class MainWindow {
 							{
 								break;
 							}
-							JToken picked = distinctCandidates[rnd.Next(distinctCandidates.Count)];
+							JsonNode picked = distinctCandidates[rnd.Next(distinctCandidates.Count)];
 							distinctCandidates.Remove(picked);
 							pickedItems.Add(picked);
 						}
-						List<(string, string, string, string, JArray)> heroData = new List<(string, string, string, string, JArray)>();
-						foreach (JToken item3 in pickedItems)
+						List<(string, string, string, string, JsonArray)> heroData = new List<(string, string, string, string, JsonArray)>();
+						foreach (JsonNode item3 in pickedItems)
 						{
 							string vId2 = ((string?)item3["videoId"]) ?? "";
 							string t2 = ((string?)item3["title"]) ?? "";
 							string a = "";
-							JArray aTok = item3["artists"] as JArray;
+							JsonArray aTok = item3["artists"] as JsonArray;
 							if (aTok != null)
 							{
 								List<string> names = new List<string>();
-								foreach (JToken art in aTok)
+								foreach (JsonNode art in aTok)
 								{
 									names.Add(((string?)art["name"]) ?? "");
 								}
 								a = string.Join(", ", names);
 							}
 							string url = "";
-							if (item3["thumbnails"] is JArray { Count: >0 } th)
+							if (item3["thumbnails"] is JsonArray { Count: >0 } th)
 							{
 								url = ((string?)th[th.Count - 1]["url"]) ?? "";
 							}
@@ -201,14 +200,14 @@ namespace Spectre; public partial class MainWindow {
 					}
 				}
 				int delayMs = 50;
-				foreach (JToken shelf2 in sortedResults)
+				foreach (JsonNode shelf2 in sortedResults)
 				{
-					if (!(shelf2["contents"] is JArray contents2))
+					if (!(shelf2["contents"] is JsonArray contents2))
 					{
 						continue;
 					}
-					List<JToken> validItems = new List<JToken>();
-					foreach (JToken item4 in contents2)
+					List<JsonNode> validItems = new List<JsonNode>();
+					foreach (JsonNode item4 in contents2)
 					{
 						if (!string.IsNullOrEmpty((string?)item4["videoId"]) || !string.IsNullOrEmpty((string?)item4["playlistId"]))
 						{
@@ -226,7 +225,7 @@ namespace Spectre; public partial class MainWindow {
 					}
 					int songCount = 0;
 					int mixCount = 0;
-					foreach (JToken item5 in validItems)
+					foreach (JsonNode item5 in validItems)
 					{
 						string vId3 = (string?)item5["videoId"];
 						string pId2 = (string?)item5["playlistId"];
@@ -254,30 +253,30 @@ namespace Spectre; public partial class MainWindow {
 					}
 					System.Windows.Controls.Panel container = null;
 					int initialCount = 16;
-					Action<JToken> renderItem = delegate(JToken jToken)
+					Action<JsonNode> renderItem = delegate(JsonNode JsonNode)
 					{
-						string text = (string?)jToken["videoId"];
-						string text2 = (string?)jToken["playlistId"];
+						string text = (string?)JsonNode?["videoId"];
+						string text2 = (string?)JsonNode["playlistId"];
 						string text3 = ((!string.IsNullOrEmpty(text)) ? text : (text2 ?? ""));
-						string text4 = ((string?)jToken["title"]) ?? "";
+						string text4 = ((string?)JsonNode?["title"]) ?? "";
 						string text5 = "";
-						JArray jArray = jToken["artists"] as JArray;
-						if (jArray != null)
+						JsonArray JsonArray = JsonNode?["artists"] as JsonArray;
+						if (JsonArray != null)
 						{
 							List<string> list = new List<string>();
-							foreach (JToken current2 in jArray)
+							foreach (JsonNode current2 in JsonArray)
 							{
 								list.Add(((string?)current2["name"]) ?? "");
 							}
 							text5 = string.Join(", ", list);
 						}
-						JArray jArray2 = jToken["thumbnails"] as JArray;
+						JsonArray jArray2 = JsonNode?["thumbnails"] as JsonArray;
 						string thumbUrl = "";
 						if (jArray2 != null && jArray2.Count > 0)
 						{
 							thumbUrl = ((string?)jArray2[jArray2.Count - 1]["url"]) ?? "";
 						}
-						bool num2 = jToken["isCard"]?.Value<bool>() ?? false;
+						bool num2 = JsonNode["isCard"]?.GetValue<bool>() ?? false;
 						string text6 = "Song";
 						if (num2)
 						{
@@ -310,11 +309,11 @@ namespace Spectre; public partial class MainWindow {
 						{
 							if (useCards)
 							{
-								container.Children.Add(CreateTrackCard(text3, text4, text5, thumbUrl, text6, jArray));
+								container.Children.Add(CreateTrackCard(text3, text4, text5, thumbUrl, text6, JsonArray));
 							}
 							else
 							{
-								container.Children.Add(CreateTrackTile(text3, text4, text5, thumbUrl, text6, jArray));
+								container.Children.Add(CreateTrackTile(text3, text4, text5, thumbUrl, text6, JsonArray));
 							}
 						}
 					};
@@ -559,9 +558,9 @@ namespace Spectre; public partial class MainWindow {
 				Height = 50.0,
 				VerticalAlignment = VerticalAlignment.Top,
 				Margin = new Thickness(0.0, 0.0, 15.0, 0.0),
-				Child = new SvgViewbox
+				Child = new System.Windows.Controls.Image
 				{
-					Source = new Uri("Icons/radio.svg", UriKind.Relative),
+					Source = (System.Windows.Media.DrawingImage)System.Windows.Application.Current.FindResource("radioIcon"),
 					Width = 24.0,
 					Height = 24.0,
 					HorizontalAlignment = System.Windows.HorizontalAlignment.Center,
@@ -609,9 +608,9 @@ namespace Spectre; public partial class MainWindow {
 					{
 						Orientation = System.Windows.Controls.Orientation.Horizontal
 					};
-					streamStack.Children.Add(new SvgViewbox
+					streamStack.Children.Add(new System.Windows.Controls.Image
 					{
-						Source = new Uri("Icons/playwhite.svg", UriKind.Relative),
+						Source = (System.Windows.Media.DrawingImage)System.Windows.Application.Current.FindResource("playwhiteIcon"),
 						Width = 10.0,
 						Height = 10.0,
 						Margin = new Thickness(0.0, 0.0, 6.0, 0.0),
@@ -721,15 +720,15 @@ namespace Spectre; public partial class MainWindow {
 			bool isFirstBatch = true;
 			bool isUIUpdated = false;
 			bool heroAdded = false;
-			await foreach (JArray shelves in BackendService.Instance.GetExploreFeedStreamAsync(CancellationToken.None))
+			await foreach (JsonArray shelves in BackendService.Instance.GetExploreFeedStreamAsync(CancellationToken.None))
 			{
 				if (shelves == null || shelves.Count == 0)
 				{
 					continue;
 				}
-				List<JToken> sortedResults = shelves.OrderBy(delegate(JToken jToken)
+				List<JsonNode> sortedResults = shelves.OrderBy(delegate(JsonNode? JsonNode)
 				{
-					string text = ((string?)jToken["title"]) ?? "";
+					string text = ((string?)JsonNode?["title"]) ?? "";
 					if (text.ToLower().Contains("quick picks"))
 					{
 						return 0;
@@ -739,18 +738,18 @@ namespace Spectre; public partial class MainWindow {
 				if (!heroAdded)
 				{
 					_allHeroCandidates.Clear();
-					foreach (JToken shelf in sortedResults)
+					foreach (JsonNode shelf in sortedResults)
 					{
-						if (!(shelf["contents"] is JArray contents))
+						if (!(shelf["contents"] is JsonArray contents))
 						{
 							continue;
 						}
 						int idx = 0;
-						foreach (JToken item in contents)
+						foreach (JsonNode item in contents)
 						{
 							string vId = (string?)item["videoId"];
 							string pId = (string?)item["playlistId"];
-							bool isCard = item["isCard"]?.Value<bool>() ?? false;
+							bool isCard = item["isCard"]?.GetValue<bool>() ?? false;
 							string t = ((string?)shelf["title"]) ?? "";
 							if ((t.ToLower().Contains("quick picks") || t.ToLower().Contains("listen again")) && idx < 8)
 							{
@@ -775,9 +774,9 @@ namespace Spectre; public partial class MainWindow {
 							idx++;
 						}
 					}
-					List<JToken> distinctCandidates = new List<JToken>();
+					List<JsonNode> distinctCandidates = new List<JsonNode>();
 					HashSet<string> seenIds = new HashSet<string>();
-					foreach (JToken item2 in _allHeroCandidates)
+					foreach (JsonNode item2 in _allHeroCandidates)
 					{
 						string vid = ((string?)item2["videoId"]) ?? "";
 						if (!seenIds.Contains(vid))
@@ -788,7 +787,7 @@ namespace Spectre; public partial class MainWindow {
 					}
 					if (distinctCandidates.Count > 0)
 					{
-						List<JToken> pickedItems = new List<JToken>();
+						List<JsonNode> pickedItems = new List<JsonNode>();
 						Random rnd = new Random();
 						for (int i = 0; i < 3; i++)
 						{
@@ -796,28 +795,28 @@ namespace Spectre; public partial class MainWindow {
 							{
 								break;
 							}
-							JToken picked = distinctCandidates[rnd.Next(distinctCandidates.Count)];
+							JsonNode picked = distinctCandidates[rnd.Next(distinctCandidates.Count)];
 							distinctCandidates.Remove(picked);
 							pickedItems.Add(picked);
 						}
-						List<(string, string, string, string, JArray)> heroData = new List<(string, string, string, string, JArray)>();
-						foreach (JToken item3 in pickedItems)
+						List<(string, string, string, string, JsonArray)> heroData = new List<(string, string, string, string, JsonArray)>();
+						foreach (JsonNode item3 in pickedItems)
 						{
 							string vId2 = ((string?)item3["videoId"]) ?? "";
 							string t2 = ((string?)item3["title"]) ?? "";
 							string a = "";
-							JArray aTok = item3["artists"] as JArray;
+							JsonArray aTok = item3["artists"] as JsonArray;
 							if (aTok != null)
 							{
 								List<string> names = new List<string>();
-								foreach (JToken art in aTok)
+								foreach (JsonNode art in aTok)
 								{
 									names.Add(((string?)art["name"]) ?? "");
 								}
 								a = string.Join(", ", names);
 							}
 							string url = "";
-							if (item3["thumbnails"] is JArray { Count: >0 } th)
+							if (item3["thumbnails"] is JsonArray { Count: >0 } th)
 							{
 								url = ((string?)th[th.Count - 1]["url"]) ?? "";
 							}
@@ -855,14 +854,14 @@ namespace Spectre; public partial class MainWindow {
 					}
 				}
 				int delayMs = 50;
-				foreach (JToken shelf2 in sortedResults)
+				foreach (JsonNode shelf2 in sortedResults)
 				{
-					if (!(shelf2["contents"] is JArray contents2))
+					if (!(shelf2["contents"] is JsonArray contents2))
 					{
 						continue;
 					}
-					List<JToken> validItems = new List<JToken>();
-					foreach (JToken item4 in contents2)
+					List<JsonNode> validItems = new List<JsonNode>();
+					foreach (JsonNode item4 in contents2)
 					{
 						if (!string.IsNullOrEmpty((string?)item4["videoId"]) || !string.IsNullOrEmpty((string?)item4["playlistId"]))
 						{
@@ -880,7 +879,7 @@ namespace Spectre; public partial class MainWindow {
 					}
 					int songCount = 0;
 					int mixCount = 0;
-					foreach (JToken item5 in validItems)
+					foreach (JsonNode item5 in validItems)
 					{
 						string vId3 = (string?)item5["videoId"];
 						string pId2 = (string?)item5["playlistId"];
@@ -908,30 +907,30 @@ namespace Spectre; public partial class MainWindow {
 					}
 					System.Windows.Controls.Panel container = null;
 					int initialCount = 16;
-					Action<JToken> renderItem = delegate(JToken jToken)
+					Action<JsonNode> renderItem = delegate(JsonNode JsonNode)
 					{
-						string text = (string?)jToken["videoId"];
-						string text2 = (string?)jToken["playlistId"];
+						string text = (string?)JsonNode?["videoId"];
+						string text2 = (string?)JsonNode["playlistId"];
 						string text3 = ((!string.IsNullOrEmpty(text)) ? text : (text2 ?? ""));
-						string text4 = ((string?)jToken["title"]) ?? "";
+						string text4 = ((string?)JsonNode?["title"]) ?? "";
 						string text5 = "";
-						JArray jArray = jToken["artists"] as JArray;
-						if (jArray != null)
+						JsonArray JsonArray = JsonNode?["artists"] as JsonArray;
+						if (JsonArray != null)
 						{
 							List<string> list = new List<string>();
-							foreach (JToken current2 in jArray)
+							foreach (JsonNode current2 in JsonArray)
 							{
 								list.Add(((string?)current2["name"]) ?? "");
 							}
 							text5 = string.Join(", ", list);
 						}
-						JArray jArray2 = jToken["thumbnails"] as JArray;
+						JsonArray jArray2 = JsonNode?["thumbnails"] as JsonArray;
 						string thumbUrl = "";
 						if (jArray2 != null && jArray2.Count > 0)
 						{
 							thumbUrl = ((string?)jArray2[jArray2.Count - 1]["url"]) ?? "";
 						}
-						bool num2 = jToken["isCard"]?.Value<bool>() ?? false;
+						bool num2 = JsonNode["isCard"]?.GetValue<bool>() ?? false;
 						string text6 = "Song";
 						if (num2)
 						{
@@ -964,11 +963,11 @@ namespace Spectre; public partial class MainWindow {
 						{
 							if (useCards)
 							{
-								container.Children.Add(CreateTrackCard(text3, text4, text5, thumbUrl, text6, jArray));
+								container.Children.Add(CreateTrackCard(text3, text4, text5, thumbUrl, text6, JsonArray));
 							}
 							else
 							{
-								container.Children.Add(CreateTrackTile(text3, text4, text5, thumbUrl, text6, jArray));
+								container.Children.Add(CreateTrackTile(text3, text4, text5, thumbUrl, text6, JsonArray));
 							}
 						}
 					};
@@ -1172,9 +1171,9 @@ namespace Spectre; public partial class MainWindow {
 				HorizontalAlignment = System.Windows.HorizontalAlignment.Center,
 				Margin = new Thickness(0.0, 80.0, 0.0, 0.0)
 			};
-			loginPanel.Children.Add(new SvgViewbox
+			loginPanel.Children.Add(new System.Windows.Controls.Image
 			{
-				Source = new Uri("Icons/lock.svg", UriKind.Relative),
+				Source = (System.Windows.Media.DrawingImage)System.Windows.Application.Current.FindResource("lockIcon"),
 				Width = 52.0,
 				Height = 52.0,
 				HorizontalAlignment = System.Windows.HorizontalAlignment.Center,
@@ -1225,21 +1224,21 @@ namespace Spectre; public partial class MainWindow {
 		if (_cachedAlbums != null)
 		{
 			int delayMs = 0;
-			foreach (JToken cachedAlbum in _cachedAlbums)
+			foreach (JsonNode cachedAlbum in _cachedAlbums)
 			{
 				string title = ((string?)cachedAlbum["title"]) ?? "";
 				string id = ((string?)cachedAlbum["browseId"]) ?? "";
 				string tUrl = "";
-				if (cachedAlbum["thumbnails"] is JArray { Count: >0 } thumbs)
+				if (cachedAlbum["thumbnails"] is JsonArray { Count: >0 } thumbs)
 				{
 					tUrl = ((string?)thumbs[thumbs.Count - 1]["url"]) ?? "";
 				}
 				string year = ((string?)cachedAlbum["year"]) ?? "";
 				string artists = "";
-				if (cachedAlbum["artists"] is JArray artistsToken)
+				if (cachedAlbum["artists"] is JsonArray artistsToken)
 				{
 					List<string> names = new List<string>();
-					foreach (JToken a in artistsToken)
+					foreach (JsonNode a in artistsToken)
 					{
 						names.Add(((string?)a["name"]) ?? "");
 					}
@@ -1275,13 +1274,13 @@ namespace Spectre; public partial class MainWindow {
 		try
 		{
 			_cachedLibraryError = null;
-			JObject json = await BackendService.Instance.GetLibraryPlaylistsAsync(CancellationToken.None);
+			JsonObject json = await BackendService.Instance.GetLibraryPlaylistsAsync(CancellationToken.None);
 			if (json["error"] != null)
 			{
 				throw new Exception(((string?)json["error"]) ?? "Failed to load library.");
 			}
-			JArray playlists = json["data"] as JArray;
-			JArray albums = json["albums"] as JArray;
+			JsonArray playlists = json["data"] as JsonArray;
+			JsonArray albums = json["albums"] as JsonArray;
 			_cachedPlaylists = playlists;
 			_cachedAlbums = albums;
 			_playlistsCachePanel = null;
@@ -1323,9 +1322,9 @@ namespace Spectre; public partial class MainWindow {
 						FontSize = 12.0,
 						FontWeight = FontWeights.Bold
 					};
-					SvgViewbox pHeaderArrow = new SvgViewbox
+					System.Windows.Controls.Image pHeaderArrow = new System.Windows.Controls.Image
 					{
-						Source = new Uri("Icons/downarrow.svg", UriKind.Relative),
+						Source = (System.Windows.Media.DrawingImage)System.Windows.Application.Current.FindResource("downarrowIcon"),
 						Width = 10.0,
 						Height = 10.0,
 						Margin = new Thickness(5.0, 0.0, 0.0, 0.0),
@@ -1414,7 +1413,7 @@ namespace Spectre; public partial class MainWindow {
 				}
 				if (playlists != null && !_groupLibraryTabs)
 				{
-					foreach (JToken item in playlists)
+					foreach (JsonNode item in playlists)
 					{
 						string title = ((string?)item["title"]) ?? "";
 						string id = ((string?)item["playlistId"]) ?? "";
@@ -1423,7 +1422,7 @@ namespace Spectre; public partial class MainWindow {
 							continue;
 						}
 						string tUrl = "";
-						if (item["thumbnails"] is JArray { Count: >0 } thumbs)
+						if (item["thumbnails"] is JsonArray { Count: >0 } thumbs)
 						{
 							tUrl = ((string?)thumbs[thumbs.Count - 1]["url"]) ?? "";
 						}
@@ -1431,7 +1430,8 @@ namespace Spectre; public partial class MainWindow {
 						{
 							Height = 42.0,
 							CornerRadius = new CornerRadius(6.0),
-							Padding = new Thickness(8.0, 5.0, 0.0, 5.0),
+							BorderThickness = new Thickness(1.0),
+							Padding = new Thickness(7.0, 4.0, 0.0, 4.0),
 							Margin = new Thickness(0.0, 1.0, 0.0, 1.0),
 							Cursor = System.Windows.Input.Cursors.Hand,
 							Tag = id,
@@ -1542,9 +1542,9 @@ namespace Spectre; public partial class MainWindow {
 				FontSize = 12.0,
 				FontWeight = FontWeights.Bold
 			};
-			SvgViewbox aHeaderArrow = new SvgViewbox
+			System.Windows.Controls.Image aHeaderArrow = new System.Windows.Controls.Image
 			{
-				Source = new Uri("Icons/downarrow.svg", UriKind.Relative),
+				Source = (System.Windows.Media.DrawingImage)System.Windows.Application.Current.FindResource("downarrowIcon"),
 				Width = 10.0,
 				Height = 10.0,
 				Margin = new Thickness(5.0, 0.0, 0.0, 0.0),
@@ -1630,7 +1630,7 @@ namespace Spectre; public partial class MainWindow {
 			};
 			aHeaderGrid.BeginAnimation(UIElement.OpacityProperty, animA);
 			delayMs += 30;
-			foreach (JToken item2 in albums)
+			foreach (JsonNode item2 in albums)
 			{
 				string title2 = ((string?)item2["title"]) ?? "";
 				string id2 = ((string?)item2["browseId"]) ?? "";
@@ -1643,16 +1643,16 @@ namespace Spectre; public partial class MainWindow {
 					_savedAlbumIds.Add(id2);
 				}
 				string tUrl2 = "";
-				if (item2["thumbnails"] is JArray { Count: >0 } thumbs2)
+				if (item2["thumbnails"] is JsonArray { Count: >0 } thumbs2)
 				{
 					tUrl2 = ((string?)thumbs2[thumbs2.Count - 1]["url"]) ?? "";
 				}
 				string year = ((string?)item2["year"]) ?? "";
 				string artists = "";
-				if (item2["artists"] is JArray artistsToken)
+				if (item2["artists"] is JsonArray artistsToken)
 				{
 					List<string> names = new List<string>();
-					foreach (JToken a in artistsToken)
+					foreach (JsonNode a in artistsToken)
 					{
 						names.Add(((string?)a["name"]) ?? "");
 					}
@@ -1663,7 +1663,8 @@ namespace Spectre; public partial class MainWindow {
 				{
 					Height = 42.0,
 					CornerRadius = new CornerRadius(6.0),
-					Padding = new Thickness(8.0, 5.0, 0.0, 5.0),
+					BorderThickness = new Thickness(1.0),
+					Padding = new Thickness(7.0, 4.0, 0.0, 4.0),
 					Margin = new Thickness(0.0, 1.0, 0.0, 1.0),
 					Cursor = System.Windows.Input.Cursors.Hand,
 					Tag = id2,
@@ -1743,12 +1744,12 @@ namespace Spectre; public partial class MainWindow {
 	{
 		try
 		{
-			if (!((await BackendService.Instance.GetLikedSongsAsync(CancellationToken.None))["data"]?["tracks"] is JArray tracks))
+			if (!((await BackendService.Instance.GetLikedSongsAsync(CancellationToken.None))["data"]?["tracks"] is JsonArray tracks))
 			{
 				return;
 			}
 			HashSet<string> likedIds = new HashSet<string>();
-			foreach (JToken item in tracks)
+			foreach (JsonNode item in tracks)
 			{
 				string videoId = ((string?)item["videoId"]) ?? "";
 				if (!string.IsNullOrEmpty(videoId))
@@ -2185,11 +2186,11 @@ namespace Spectre; public partial class MainWindow {
 					{
 						try
 						{
-							if ((await BackendService.Instance.SearchAsync(title, CancellationToken.None))["data"] is JObject data && data["artists"] is JArray { Count: >0 } artists)
+							if ((await BackendService.Instance.SearchAsync(title, CancellationToken.None))["data"] is JsonObject data && data["artists"] is JsonArray { Count: >0 } artists)
 							{
-								JToken jToken = artists[0];
+								JsonNode JsonNode = artists[0];
 								string tUrl = "";
-								if (jToken["thumbnails"] is JArray { Count: >0 } thumbs)
+								if (JsonNode?["thumbnails"] is JsonArray { Count: >0 } thumbs)
 								{
 									tUrl = ((string?)thumbs[thumbs.Count - 1]["url"]) ?? "";
 								}
@@ -2286,23 +2287,23 @@ namespace Spectre; public partial class MainWindow {
 				try
 				{
 					string query = (title + " " + subtitle).Trim();
-					if ((await BackendService.Instance.SearchAsync(query, CancellationToken.None))["data"] is JObject data)
+					if ((await BackendService.Instance.SearchAsync(query, CancellationToken.None))["data"] is JsonObject data)
 					{
 						if (type == "Track")
 						{
-							if (data["songs"] is JArray { Count: >0 } songs)
+							if (data["songs"] is JsonArray { Count: >0 } songs)
 							{
-								JToken jToken = songs[0];
-								string vid = ((string?)jToken["videoId"]) ?? "";
-								string t3 = ((string?)jToken["title"]) ?? "";
+								JsonNode JsonNode = songs[0];
+								string vid = ((string?)JsonNode?["videoId"]) ?? "";
+								string t3 = ((string?)JsonNode?["title"]) ?? "";
 								string a3 = "";
-								JArray aList = jToken["artists"] as JArray;
+								JsonArray aList = JsonNode?["artists"] as JsonArray;
 								if (aList != null && aList.Count > 0)
 								{
 									a3 = ((string?)aList[0]["name"]) ?? "";
 								}
 								string thumb = "";
-								if (jToken["thumbnails"] is JArray { Count: >0 } thumbs)
+								if (JsonNode?["thumbnails"] is JsonArray { Count: >0 } thumbs)
 								{
 									thumb = ((string?)thumbs[thumbs.Count - 1]["url"]) ?? "";
 								}
@@ -2311,26 +2312,26 @@ namespace Spectre; public partial class MainWindow {
 						}
 						else if (type == "Artist")
 						{
-							if (data["artists"] is JArray { Count: >0 } artists)
+							if (data["artists"] is JsonArray { Count: >0 } artists)
 							{
-								JToken jToken2 = artists[0];
+								JsonNode jToken2 = artists[0];
 								string id = ((string?)jToken2["browseId"]) ?? "";
 								string n = ((string?)jToken2["artist"]) ?? "";
 								string thumb2 = "";
-								if (jToken2["thumbnails"] is JArray { Count: >0 } thumbs2)
+								if (jToken2["thumbnails"] is JsonArray { Count: >0 } thumbs2)
 								{
 									thumb2 = ((string?)thumbs2[thumbs2.Count - 1]["url"]) ?? "";
 								}
 								OpenArtistPage(id, n, thumb2);
 							}
 						}
-						else if (type == "Album" && data["albums"] is JArray { Count: >0 } albums)
+						else if (type == "Album" && data["albums"] is JsonArray { Count: >0 } albums)
 						{
-							JToken jToken3 = albums[0];
+							JsonNode jToken3 = albums[0];
 							string id2 = ((string?)jToken3["browseId"]) ?? "";
 							string n2 = ((string?)jToken3["title"]) ?? "";
 							string thumb3 = "";
-							if (jToken3["thumbnails"] is JArray { Count: >0 } thumbs3)
+							if (jToken3["thumbnails"] is JsonArray { Count: >0 } thumbs3)
 							{
 								thumb3 = ((string?)thumbs3[thumbs3.Count - 1]["url"]) ?? "";
 							}
@@ -2419,17 +2420,17 @@ namespace Spectre; public partial class MainWindow {
 		int tId = num;
 		try
 		{
-			Task<JObject> songsTask = BackendService.Instance.GetArtistSongsAsync(channelId, artistName, CancellationToken.None, 14);
-			Task<JObject> infoTask = BackendService.Instance.GetArtistInfoAsync(channelId, CancellationToken.None);
-			await Task.WhenAll<JObject>(songsTask, infoTask);
-			JObject jsonInfo = infoTask.Result;
-			JObject jsonSongsFast = songsTask.Result;
+			Task<JsonObject> songsTask = BackendService.Instance.GetArtistSongsAsync(channelId, artistName, CancellationToken.None, 14);
+			Task<JsonObject> infoTask = BackendService.Instance.GetArtistInfoAsync(channelId, CancellationToken.None);
+			await Task.WhenAll<JsonObject>(songsTask, infoTask);
+			JsonObject jsonInfo = infoTask.Result;
+			JsonObject jsonSongsFast = songsTask.Result;
 			if (jsonInfo["error"] != null)
 			{
 				throw new Exception(((string?)jsonInfo["error"]) ?? "Error");
 			}
-			JObject dataInfo = jsonInfo["data"] as JObject;
-			if (string.IsNullOrEmpty(thumbUrl) && dataInfo != null && dataInfo["thumbnails"] is JArray { Count: >0 } tArr)
+			JsonObject dataInfo = jsonInfo["data"] as JsonObject;
+			if (string.IsNullOrEmpty(thumbUrl) && dataInfo != null && dataInfo["thumbnails"] is JsonArray { Count: >0 } tArr)
 			{
 				thumbUrl = ((string?)tArr[tArr.Count - 1]["url"]) ?? "";
 			}
@@ -2533,9 +2534,9 @@ namespace Spectre; public partial class MainWindow {
 				Height = 48.0,
 				Margin = new Thickness(15.0, 0.0, 0.0, 0.0)
 			};
-			shuffleBtn.Content = new SvgViewbox
+			shuffleBtn.Content = new System.Windows.Controls.Image
 			{
-				Source = new Uri("Icons/shuffle.svg", UriKind.Relative),
+				Source = (System.Windows.Media.DrawingImage)System.Windows.Application.Current.FindResource("shuffleIcon"),
 				Width = 20.0,
 				Height = 20.0,
 				VerticalAlignment = VerticalAlignment.Center,
@@ -2548,7 +2549,7 @@ namespace Spectre; public partial class MainWindow {
 			pagePanel.Children.Add(headerPanel);
 			if (dataInfo != null)
 			{
-				JArray fastTracks = jsonSongsFast["tracks"] as JArray;
+				JsonArray fastTracks = jsonSongsFast["tracks"] as JsonArray;
 				if (fastTracks != null && fastTracks.Count > 0)
 				{
 					Grid headerGrid = new Grid
@@ -2592,9 +2593,9 @@ namespace Spectre; public partial class MainWindow {
 					};
 					TranslateTransform textTransform = new TranslateTransform(0.0, 0.0);
 					seeAllBtn.RenderTransform = textTransform;
-					SvgViewbox arrowIcon = new SvgViewbox
+					System.Windows.Controls.Image arrowIcon = new System.Windows.Controls.Image
 					{
-						Source = new Uri("Icons/rightarrow.svg", UriKind.Relative),
+						Source = (System.Windows.Media.DrawingImage)System.Windows.Application.Current.FindResource("rightarrowIcon"),
 						Width = 14.0,
 						Height = 14.0,
 						VerticalAlignment = VerticalAlignment.Center,
@@ -2627,7 +2628,7 @@ namespace Spectre; public partial class MainWindow {
 					bool isFetchingFull = false;
 					bool isExpanded = false;
 					double collapsedHeight = 0.0;
-					JArray loadedFullTracks = null;
+					JsonArray loadedFullTracks = null;
 					bool isGridPopulatedWithFull = false;
 
 					Action populateGridWithFull = delegate
@@ -2635,29 +2636,29 @@ namespace Spectre; public partial class MainWindow {
 						if (isGridPopulatedWithFull || loadedFullTracks == null) return;
 						trackGrid.Children.Clear();
 						int num2 = 0;
-						foreach (JToken current4 in loadedFullTracks)
+						foreach (JsonNode current4 in loadedFullTracks)
 						{
 							string text = ((string?)current4["videoId"]) ?? "";
 							if (!string.IsNullOrEmpty(text))
 							{
 								string title5 = ((string?)current4["title"]) ?? "";
 								string artist = artistName;
-								JArray jArray = current4["artists"] as JArray;
-								if (jArray != null && jArray.Count > 0)
+								JsonArray JsonArray = current4["artists"] as JsonArray;
+								if (JsonArray != null && JsonArray.Count > 0)
 								{
 									List<string> list = new List<string>();
-									foreach (JToken current5 in jArray)
+									foreach (JsonNode current5 in JsonArray)
 									{
 										list.Add(((string?)current5["name"]) ?? "");
 									}
 									artist = string.Join(", ", list);
 								}
 								string thumbUrl2 = thumbUrl;
-								if (current4["thumbnails"] is JArray { Count: >0 } jArray2)
+								if (current4["thumbnails"] is JsonArray { Count: >0 } jArray2)
 								{
 									thumbUrl2 = ((string?)jArray2[jArray2.Count - 1]["url"]) ?? "";
 								}
-								Border border = CreateTrackRow(text, title5, artist, thumbUrl2, "", "", "", "", channelId, loadedFullTracks, num2, "", hideLikedToggle: false, null, jArray);
+								Border border = CreateTrackRow(text, title5, artist, thumbUrl2, "", "", "", "", channelId, loadedFullTracks, num2, "", hideLikedToggle: false, null, JsonArray);
 								border.Margin = new Thickness(5.0);
 								trackGrid.Children.Add(border);
 								num2++;
@@ -2711,7 +2712,7 @@ namespace Spectre; public partial class MainWindow {
 							{
 								try
 								{
-									JArray fullTracks = (await BackendService.Instance.GetArtistSongsAsync(channelId, artistName, CancellationToken.None))["tracks"] as JArray;
+									JsonArray fullTracks = (await BackendService.Instance.GetArtistSongsAsync(channelId, artistName, CancellationToken.None))["tracks"] as JsonArray;
 									if (fullTracks != null && fullTracks.Count > 0)
 									{
 										base.Dispatcher.Invoke(delegate
@@ -2764,7 +2765,7 @@ namespace Spectre; public partial class MainWindow {
 												}
 												if (num4 != -1)
 												{
-													InitQueueAndShuffle(new JArray(fullTracks), num4);
+													InitQueueAndShuffle((System.Text.Json.Nodes.JsonArray)fullTracks.DeepClone(), num4);
 												}
 											}
 										});
@@ -2787,21 +2788,21 @@ namespace Spectre; public partial class MainWindow {
 						if (fastTracks != null && fastTracks.Count != 0)
 						{
 							int num2 = (shuffle ? new Random().Next(fastTracks.Count) : 0);
-							InitQueueAndShuffle(new JArray(fastTracks), num2);
-							JToken jToken = fastTracks[num2];
-							string text = ((string?)jToken["videoId"]) ?? "";
-							string title5 = ((string?)jToken["title"]) ?? "";
+							InitQueueAndShuffle((System.Text.Json.Nodes.JsonArray)fastTracks.DeepClone(), num2);
+							JsonNode JsonNode = fastTracks[num2];
+							string text = ((string?)JsonNode?["videoId"]) ?? "";
+							string title5 = ((string?)JsonNode?["title"]) ?? "";
 							string thumbUrl2 = "";
-							if (jToken["thumbnails"] is JArray { Count: >0 } jArray)
+							if (JsonNode?["thumbnails"] is JsonArray { Count: >0 } JsonArray)
 							{
-								thumbUrl2 = ((string?)jArray[jArray.Count - 1]["url"]) ?? "";
+								thumbUrl2 = ((string?)JsonArray[JsonArray.Count - 1]["url"]) ?? "";
 							}
 							string artist = artistName;
-							JArray jArray2 = jToken["artists"] as JArray;
+							JsonArray jArray2 = JsonNode?["artists"] as JsonArray;
 							if (jArray2 != null && jArray2.Count > 0)
 							{
 								List<string> list = new List<string>();
-								foreach (JToken current4 in jArray2)
+								foreach (JsonNode current4 in jArray2)
 								{
 									list.Add(((string?)current4["name"]) ?? "");
 								}
@@ -2896,7 +2897,7 @@ namespace Spectre; public partial class MainWindow {
 						}
 					};
 					int count = 0;
-					foreach (JToken item in fastTracks)
+					foreach (JsonNode item in fastTracks)
 					{
 						string videoId = ((string?)item["videoId"]) ?? "";
 						if (string.IsNullOrEmpty(videoId))
@@ -2905,18 +2906,18 @@ namespace Spectre; public partial class MainWindow {
 						}
 						string title = ((string?)item["title"]) ?? "";
 						string artistsStr = artistName;
-						JArray artistsToken = item["artists"] as JArray;
+						JsonArray artistsToken = item["artists"] as JsonArray;
 						if (artistsToken != null && artistsToken.Count > 0)
 						{
 							List<string> names = new List<string>();
-							foreach (JToken a in artistsToken)
+							foreach (JsonNode a in artistsToken)
 							{
 								names.Add(((string?)a["name"]) ?? "");
 							}
 							artistsStr = string.Join(", ", names);
 						}
 						string tUrl = thumbUrl;
-						if (item["thumbnails"] is JArray { Count: >0 } thumbs)
+						if (item["thumbnails"] is JsonArray { Count: >0 } thumbs)
 						{
 							tUrl = ((string?)thumbs[thumbs.Count - 1]["url"]) ?? "";
 						}
@@ -2942,10 +2943,10 @@ namespace Spectre; public partial class MainWindow {
 			bool isAlbumsActive;
 			if (dataInfo != null)
 			{
-				JObject obj = dataInfo["albums"] as JObject;
-				JObject singlesInfo = dataInfo["singles"] as JObject;
-				JArray albumsArray = obj?["results"] as JArray;
-				JArray singlesArray = singlesInfo?["results"] as JArray;
+				JsonObject obj = dataInfo["albums"] as JsonObject;
+				JsonObject singlesInfo = dataInfo["singles"] as JsonObject;
+				JsonArray albumsArray = obj?["results"] as JsonArray;
+				JsonArray singlesArray = singlesInfo?["results"] as JsonArray;
 				if ((albumsArray != null && albumsArray.Count > 0) || (singlesArray != null && singlesArray.Count > 0))
 				{
 					StackPanel releasesContainer = new StackPanel
@@ -3046,13 +3047,13 @@ namespace Spectre; public partial class MainWindow {
 						obj2.Visibility = Visibility.Collapsed;
 						albumsSeeAllWrapper.Children.Add(seeAllBtn2);
 						((StackPanel)sv).Margin = new Thickness(0.0);
-						foreach (JToken item2 in albumsArray)
+						foreach (JsonNode item2 in albumsArray)
 						{
 							string id = ((string?)item2["browseId"]) ?? "";
 							string title2 = ((string?)item2["title"]) ?? "";
 							string year = ((string?)item2["year"]) ?? "";
 							string tUrl2 = "";
-							if (item2["thumbnails"] is JArray { Count: >0 } thumbs2)
+							if (item2["thumbnails"] is JsonArray { Count: >0 } thumbs2)
 							{
 								tUrl2 = ((string?)thumbs2[thumbs2.Count - 1]["url"]) ?? "";
 							}
@@ -3071,13 +3072,13 @@ namespace Spectre; public partial class MainWindow {
 						obj3.Visibility = Visibility.Collapsed;
 						singlesSeeAllWrapper.Children.Add(seeAllBtn3);
 						((StackPanel)sv2).Margin = new Thickness(0.0);
-						foreach (JToken item3 in singlesArray)
+						foreach (JsonNode item3 in singlesArray)
 						{
 							string id2 = ((string?)item3["browseId"]) ?? "";
 							string title3 = ((string?)item3["title"]) ?? "";
 							string year2 = ((string?)item3["year"]) ?? "";
 							string tUrl3 = "";
-							if (item3["thumbnails"] is JArray { Count: >0 } thumbs3)
+							if (item3["thumbnails"] is JsonArray { Count: >0 } thumbs3)
 							{
 								tUrl3 = ((string?)thumbs3[thumbs3.Count - 1]["url"]) ?? "";
 							}
@@ -3140,15 +3141,15 @@ namespace Spectre; public partial class MainWindow {
 					}
 					pagePanel.Children.Add(releasesContainer);
 				}
-				if (dataInfo["similarArtists"] is JArray { Count: >0 } similarArtists)
+				if (dataInfo["similarArtists"] is JsonArray { Count: >0 } similarArtists)
 				{
 					var (svSimilar, similarGrid) = CreateExpandableSection("Fans might also like", similarArtists.Count);
-					foreach (JToken item4 in similarArtists)
+					foreach (JsonNode item4 in similarArtists)
 					{
 						string id3 = ((string?)item4["browseId"]) ?? "";
 						string title4 = ((string?)item4["title"]) ?? "";
 						string tUrl4 = "";
-						if (item4["thumbnails"] is JArray { Count: >0 } thumbs4)
+						if (item4["thumbnails"] is JsonArray { Count: >0 } thumbs4)
 						{
 							tUrl4 = ((string?)thumbs4[thumbs4.Count - 1]["url"]) ?? "";
 						}
@@ -3345,9 +3346,9 @@ namespace Spectre; public partial class MainWindow {
 			Height = 48.0,
 			Margin = new Thickness(15.0, 0.0, 0.0, 0.0)
 		};
-		shuffleBtn.Content = new SvgViewbox
+		shuffleBtn.Content = new System.Windows.Controls.Image
 		{
-			Source = new Uri("Icons/shuffle.svg", UriKind.Relative),
+			Source = (System.Windows.Media.DrawingImage)System.Windows.Application.Current.FindResource("shuffleIcon"),
 			Width = 20.0,
 			Height = 20.0,
 			VerticalAlignment = VerticalAlignment.Center,
@@ -3376,7 +3377,7 @@ namespace Spectre; public partial class MainWindow {
 				List<string> list = (from f in Directory.GetFiles(_LocalMusicPath, "*.*", SearchOption.AllDirectories)
 					where f.EndsWith(".mp3", StringComparison.OrdinalIgnoreCase) || f.EndsWith(".flac", StringComparison.OrdinalIgnoreCase) || f.EndsWith(".wav", StringComparison.OrdinalIgnoreCase) || f.EndsWith(".opus", StringComparison.OrdinalIgnoreCase) || f.EndsWith(".m4a", StringComparison.OrdinalIgnoreCase)
 					select f).ToList();
-				JArray localQueue = new JArray();
+				JsonArray localQueue = new JsonArray();
 				int num = 1;
 				foreach (string file in list)
 				{
@@ -3412,18 +3413,18 @@ namespace Spectre; public partial class MainWindow {
 					catch
 					{
 					}
-					JObject jObject = new JObject
+					JsonObject JsonObject = new JsonObject
 					{
 						["videoId"] = "local:" + file,
 						["title"] = title,
-						["artists"] = new JArray(new JObject { ["name"] = artist }),
-						["thumbnails"] = new JArray()
+						["artists"] = new JsonArray(new JsonObject { ["name"] = artist }),
+						["thumbnails"] = new JsonArray()
 					};
 					if (!string.IsNullOrEmpty(thumbUrl))
 					{
-						((JArray)jObject["thumbnails"]).Add(new JObject { ["url"] = thumbUrl });
+						((JsonArray)JsonObject["thumbnails"]).Add(new JsonObject { ["url"] = thumbUrl });
 					}
-					localQueue.Add(jObject);
+					localQueue.Add(JsonObject);
 					int currentIndex = num;
 					base.Dispatcher.InvokeAsync(delegate
 					{
@@ -3444,24 +3445,24 @@ namespace Spectre; public partial class MainWindow {
 								UpdateShuffleIcon();
 							}
 							int num2 = (shuffle ? new Random().Next(localQueue.Count) : 0);
-							InitQueueAndShuffle(new JArray(localQueue), num2);
-							JToken jToken = localQueue[num2];
-							string text2 = ((string?)jToken["videoId"]) ?? "";
-							string title2 = ((string?)jToken["title"]) ?? "";
+							InitQueueAndShuffle((System.Text.Json.Nodes.JsonArray)localQueue.DeepClone(), num2);
+							JsonNode JsonNode = localQueue[num2];
+							string text2 = ((string?)JsonNode?["videoId"]) ?? "";
+							string title2 = ((string?)JsonNode?["title"]) ?? "";
 							string text3 = "Local Artist";
-							JArray jArray = jToken["artists"] as JArray;
-							if (jArray != null && jArray.Count > 0)
+							JsonArray JsonArray = JsonNode?["artists"] as JsonArray;
+							if (JsonArray != null && JsonArray.Count > 0)
 							{
-								text3 = ((string?)jArray[0]["name"]) ?? text3;
+								text3 = ((string?)JsonArray[0]["name"]) ?? text3;
 							}
 							string thumbUrl2 = "";
-							if (jToken["thumbnails"] is JArray { Count: >0 } jArray2)
+							if (JsonNode?["thumbnails"] is JsonArray { Count: >0 } jArray2)
 							{
 								thumbUrl2 = ((string?)jArray2[jArray2.Count - 1]["url"]) ?? "";
 							}
 							if (!string.IsNullOrEmpty(text2))
 							{
-								_ = _ = _ = _ = PlayTrack(text2, title2, text3, thumbUrl2, addToHistory: true, startPaused: false, useCrossfade: false, 0, jArray);
+								_ = _ = _ = _ = PlayTrack(text2, title2, text3, thumbUrl2, addToHistory: true, startPaused: false, useCrossfade: false, 0, JsonArray);
 							}
 						}
 					};
@@ -3697,7 +3698,7 @@ namespace Spectre; public partial class MainWindow {
 					loginBtn.Foreground = (SolidColorBrush)System.Windows.Application.Current.MainWindow.Resources["TextBrush"];
 					loginBtn.Template = loginTemplate;
 					instructionsPanel.Visibility = Visibility.Collapsed;
-					JObject obj = await BackendService.Instance.GetAccountInfoAsync(CancellationToken.None);
+					JsonObject obj = await BackendService.Instance.GetAccountInfoAsync(CancellationToken.None);
 					string accountName = ((string?)obj["data"]?["accountName"]) ?? "Google Account";
 					string accountEmail = ((string?)obj["data"]?["accountEmail"]) ?? "";
 					string accountPhoto = ((string?)obj["data"]?["accountPhoto"]) ?? "";
@@ -3970,3 +3971,10 @@ namespace Spectre; public partial class MainWindow {
 		});
 	}
 }
+
+
+
+
+
+
+

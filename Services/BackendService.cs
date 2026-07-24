@@ -12,8 +12,9 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
+
+using System.Text.Json.Nodes;
+using System.Text.Json;
 using TagLib;
 using YoutubeExplode;
 using YoutubeExplode.Common;
@@ -62,7 +63,7 @@ public class BackendService
 
 	private readonly ConcurrentDictionary<string, Task<MainWindow.PlaybackStreamInfo>> _inflightStreamRequests = new ConcurrentDictionary<string, Task<MainWindow.PlaybackStreamInfo>>();
 
-	private readonly ConcurrentDictionary<string, Task<JObject>> _inflightYoutubeiRequests = new ConcurrentDictionary<string, Task<JObject>>();
+	private readonly ConcurrentDictionary<string, Task<JsonObject>> _inflightYoutubeiRequests = new ConcurrentDictionary<string, Task<JsonObject>>();
 
 	private readonly ConcurrentDictionary<string, (MainWindow.PlaybackStreamInfo Info, DateTime Expiry)> _streamUrlCache = new ConcurrentDictionary<string, (MainWindow.PlaybackStreamInfo, DateTime)>();
 
@@ -148,7 +149,7 @@ public class BackendService
 			jsonStr = jsonStr.Trim('\ufeff', ' ', '\r', '\n', '\t');
 			if (jsonStr.StartsWith("{"))
 			{
-				JObject json = JObject.Parse(jsonStr);
+				JsonObject json = System.Text.Json.Nodes.JsonNode.Parse(jsonStr)!.AsObject();
 				if (json["cookie"] != null)
 				{
 					_cookieString = json["cookie"]?.ToString();
@@ -196,9 +197,9 @@ public class BackendService
 		}
 	}
 
-	private Task<JObject> SendYoutubeiRequestAsync(string endpoint, JObject payload, CancellationToken token)
+	private Task<JsonObject> SendYoutubeiRequestAsync(string endpoint, JsonObject payload, CancellationToken token)
 	{
-		string cacheKey = endpoint + "|" + payload.ToString(Formatting.None);
+		string cacheKey = endpoint + "|" + payload.ToJsonString(new System.Text.Json.JsonSerializerOptions());
 		return _inflightYoutubeiRequests.GetOrAdd(cacheKey, async delegate(string k)
 		{
 			try
@@ -207,12 +208,12 @@ public class BackendService
 			}
 			finally
 			{
-				_inflightYoutubeiRequests.TryRemove(k, out Task<JObject> _);
+				_inflightYoutubeiRequests.TryRemove(k, out Task<JsonObject> _);
 			}
 		});
 	}
 
-	private async Task<JObject> SendYoutubeiRequestInternalAsync(string endpoint, JObject payload, CancellationToken token, bool isRetry = false)
+	private async Task<JsonObject> SendYoutubeiRequestInternalAsync(string endpoint, JsonObject payload, CancellationToken token, bool isRetry = false)
 	{
 		await LoadAuthAsync();
 		string url = "https://music.youtube.com/youtubei/v1/" + endpoint + "?alt=json&key=AIzaSyC9XL3ZjWddXya6X74dJoCTL-WEYFDNX30";
@@ -256,14 +257,14 @@ public class BackendService
 		}
 		if (payload["context"] == null)
 		{
-			payload["context"] = new JObject { ["client"] = new JObject
+			payload["context"] = new JsonObject { ["client"] = new JsonObject
 			{
 				["clientName"] = "WEB_REMIX",
 				["clientVersion"] = "1.20230508.01.00",
 				["hl"] = "en"
 			} };
 		}
-		request.Content = new StringContent(payload.ToString(Formatting.None), Encoding.UTF8, "application/json");
+		request.Content = new StringContent(payload.ToJsonString(new System.Text.Json.JsonSerializerOptions()), Encoding.UTF8, "application/json");
 		HttpResponseMessage response = await _client.SendAsync(request, token).ConfigureAwait(continueOnCapturedContext: false);
 		string resStr = await response.Content.ReadAsStringAsync(token).ConfigureAwait(continueOnCapturedContext: false);
 		if (!response.IsSuccessStatusCode)
@@ -290,7 +291,7 @@ public class BackendService
 			}
 			throw new Exception($"YouTube API returned {response.StatusCode}: {resStr}");
 		}
-		return await Task.Run(() => JObject.Parse(resStr));
+		return await Task.Run(() => System.Text.Json.Nodes.JsonNode.Parse(resStr)!.AsObject());
 	}
 
 	public async Task<byte[]> DownloadImageAsync(string url, CancellationToken token)
@@ -298,9 +299,9 @@ public class BackendService
 		return await _client.GetByteArrayAsync(url, token).ConfigureAwait(continueOnCapturedContext: false);
 	}
 
-	private JArray GetThumbnails(JToken? renderer)
+	private JsonArray GetThumbnails(JsonNode? renderer)
 	{
-		return ((renderer?.SelectTokens("..thumbnail.musicThumbnailRenderer.thumbnail.thumbnails").FirstOrDefault() ?? renderer?.SelectTokens("..thumbnailRenderer.musicThumbnailRenderer.thumbnail.thumbnails").FirstOrDefault() ?? renderer?.SelectTokens("..thumbnails[0].thumbnails").FirstOrDefault() ?? renderer?.SelectTokens("..thumbnails").FirstOrDefault()) as JArray) ?? new JArray();
+		return ((renderer?.SelectTokens("..thumbnail.musicThumbnailRenderer.thumbnail.thumbnails").FirstOrDefault() ?? renderer?.SelectTokens("..thumbnailRenderer.musicThumbnailRenderer.thumbnail.thumbnails").FirstOrDefault() ?? renderer?.SelectTokens("..thumbnails[0].thumbnails").FirstOrDefault() ?? renderer?.SelectTokens("..thumbnails").FirstOrDefault())?.DeepClone() as System.Text.Json.Nodes.JsonArray) ?? new System.Text.Json.Nodes.JsonArray();
 	}
 
 	private static bool HasVersionTag(string text)
@@ -314,7 +315,7 @@ public class BackendService
 			select m.Value;
 	}
 
-	private static bool IsPlainVideoResult(JObject track)
+	private static bool IsPlainVideoResult(JsonObject track)
 	{
 		string type = track["resultType"]?.ToString();
 		if (!string.Equals(type, "video", StringComparison.OrdinalIgnoreCase))
@@ -324,24 +325,24 @@ public class BackendService
 		return true;
 	}
 
-	private JObject ParseTrack(JToken item)
+	private JsonObject ParseTrack(JsonNode item)
 	{
-		JToken renderer = item["musicResponsiveListItemRenderer"] ?? item["musicTwoRowItemRenderer"] ?? item["playlistPanelVideoRenderer"];
+		JsonNode renderer = item["musicResponsiveListItemRenderer"] ?? item["musicTwoRowItemRenderer"] ?? item["playlistPanelVideoRenderer"];
 		if (renderer == null)
 		{
-			return new JObject();
+			return new JsonObject();
 		}
 		string videoId = renderer.SelectToken("playlistItemData.videoId")?.ToString() ?? renderer.SelectToken("videoId")?.ToString() ?? renderer.SelectTokens("..playNavigationEndpoint.watchEndpoint.videoId").FirstOrDefault()?.ToString() ?? renderer.SelectTokens("..navigationEndpoint.watchEndpoint.videoId").FirstOrDefault()?.ToString();
 		string title = (renderer.SelectToken("title.runs[0].text") ?? renderer.SelectToken("flexColumns[0].musicResponsiveListItemFlexColumnRenderer.text.runs[0].text") ?? renderer.SelectTokens("..title.runs[0].text").FirstOrDefault())?.ToString() ?? "";
-		JArray artists = new JArray();
+		JsonArray artists = new JsonArray();
 		string album = "";
 		string albumId = "";
 		string year = "";
-		JToken subtitleRuns = renderer.SelectTokens("..subtitle.runs").FirstOrDefault() ?? renderer.SelectTokens("..flexColumns[1]..runs").FirstOrDefault() ?? renderer.SelectTokens("..longBylineText.runs").FirstOrDefault();
+		JsonNode subtitleRuns = renderer.SelectTokens("..subtitle.runs").FirstOrDefault() ?? renderer.SelectTokens("..flexColumns[1]..runs").FirstOrDefault() ?? renderer.SelectTokens("..longBylineText.runs").FirstOrDefault();
 		string subtitleText = "";
 		if (subtitleRuns != null)
 		{
-			foreach (JToken item2 in (IEnumerable<JToken>)subtitleRuns)
+			foreach (JsonNode item2 in (IEnumerable<JsonNode>)subtitleRuns)
 			{
 				string text = item2["text"]?.ToString() ?? "";
 				if (!string.IsNullOrWhiteSpace(text))
@@ -351,7 +352,7 @@ public class BackendService
 				string nav = item2.SelectToken("navigationEndpoint.browseEndpoint.browseId")?.ToString() ?? "";
 				if (nav.StartsWith("UC") && !string.IsNullOrWhiteSpace(text))
 				{
-					artists.Add(new JObject
+					artists.Add(new JsonObject
 					{
 						["name"] = text,
 						["id"] = nav
@@ -393,19 +394,19 @@ public class BackendService
 		}
 		string setVideoId = renderer.SelectToken("playlistItemData.playlistSetVideoId")?.ToString();
 		string duration = "";
-		if (renderer.SelectToken("fixedColumns") is JArray { Count: >0 } fixedColumns)
+		if (renderer.SelectToken("fixedColumns") is JsonArray { Count: >0 } fixedColumns)
 		{
-			IEnumerable<JToken> runs = fixedColumns[0].SelectTokens("musicResponsiveListItemFixedColumnRenderer.text.runs[*].text");
-			duration = ((runs == null || !runs.Any()) ? (fixedColumns[0].SelectToken("musicResponsiveListItemFixedColumnRenderer.text.simpleText")?.ToString() ?? "") : string.Join("", runs.Select((JToken r) => r.ToString())));
+			IEnumerable<JsonNode> runs = fixedColumns[0].SelectTokens("musicResponsiveListItemFixedColumnRenderer.text.runs[*].text");
+			duration = ((runs == null || !runs.Any()) ? (fixedColumns[0].SelectToken("musicResponsiveListItemFixedColumnRenderer.text.simpleText")?.ToString() ?? "") : string.Join("", runs.Select((JsonNode r) => r.ToString())));
 		}
 		string plays = "";
-		if (renderer.SelectToken("flexColumns") is JArray flexColumns)
+		if (renderer.SelectToken("flexColumns") is JsonArray flexColumns)
 		{
 			for (int i = 1; i < flexColumns.Count; i++)
 			{
 				string text2 = "";
-				IEnumerable<JToken> runs2 = flexColumns[i].SelectTokens("musicResponsiveListItemFlexColumnRenderer.text.runs[*].text");
-				text2 = ((runs2 == null || !runs2.Any()) ? (flexColumns[i].SelectToken("musicResponsiveListItemFlexColumnRenderer.text.simpleText")?.ToString() ?? "") : string.Join("", runs2.Select((JToken r) => r.ToString())));
+				IEnumerable<JsonNode> runs2 = flexColumns[i].SelectTokens("musicResponsiveListItemFlexColumnRenderer.text.runs[*].text");
+				text2 = ((runs2 == null || !runs2.Any()) ? (flexColumns[i].SelectToken("musicResponsiveListItemFlexColumnRenderer.text.simpleText")?.ToString() ?? "") : string.Join("", runs2.Select((JsonNode r) => r.ToString())));
 				if (string.IsNullOrWhiteSpace(text2))
 				{
 					continue;
@@ -437,19 +438,19 @@ public class BackendService
 		{
 			if (string.IsNullOrWhiteSpace(title))
 			{
-				return new JObject();
+				return new JsonObject();
 			}
 		}
 		else if (string.IsNullOrWhiteSpace(title))
 		{
-			return new JObject();
+			return new JsonObject();
 		}
-		JObject track = new JObject
+		JsonObject track = new JsonObject
 		{
 			["videoId"] = videoId,
 			["title"] = title,
 			["artists"] = artists,
-			["album"] = new JObject
+			["album"] = new JsonObject
 			{
 				["name"] = album,
 				["id"] = albumId
@@ -483,14 +484,14 @@ public class BackendService
 		return track;
 	}
 
-	public async Task<JObject> GetHomeFeedAsync(CancellationToken token, int limit = 10)
+	public async Task<JsonObject> GetHomeFeedAsync(CancellationToken token, int limit = 10)
 	{
-		JObject payload = new JObject { ["browseId"] = "FEmusic_home" };
-		JObject res = await SendYoutubeiRequestAsync("browse", payload, token).ConfigureAwait(continueOnCapturedContext: false);
-		JArray shelves = new JArray();
+		JsonObject payload = new JsonObject { ["browseId"] = "FEmusic_home" };
+		JsonObject res = await SendYoutubeiRequestAsync("browse", payload, token).ConfigureAwait(continueOnCapturedContext: false);
+		JsonArray shelves = new JsonArray();
 		int shelvesFetched = 0;
 		ProcessShelves(res);
-		JToken currentRes = res;
+		JsonNode currentRes = res;
 		while (shelvesFetched < limit)
 		{
 			string continuation = currentRes.SelectTokens("..nextContinuationData.continuation").FirstOrDefault()?.ToString() ?? currentRes.SelectTokens("..continuationCommand.token").FirstOrDefault()?.ToString();
@@ -498,7 +499,7 @@ public class BackendService
 			{
 				break;
 			}
-			JObject cPayload = new JObject { ["continuation"] = continuation };
+			JsonObject cPayload = new JsonObject { ["continuation"] = continuation };
 			currentRes = await SendYoutubeiRequestAsync("browse", cPayload, token).ConfigureAwait(continueOnCapturedContext: false);
 			int prevCount = shelvesFetched;
 			ProcessShelves(currentRes);
@@ -507,18 +508,18 @@ public class BackendService
 				break;
 			}
 		}
-		return new JObject { ["data"] = shelves };
-		void ProcessShelves(JToken root)
+		return new JsonObject { ["data"] = shelves };
+		void ProcessShelves(JsonNode root)
 		{
-			foreach (JToken shelf in root.SelectTokens("..musicCarouselShelfRenderer"))
+			foreach (JsonNode shelf in root.SelectTokens("..musicCarouselShelfRenderer"))
 			{
 				string title = shelf.SelectTokens("..header..title.runs[0].text").FirstOrDefault()?.ToString() ?? "";
 				if (!string.IsNullOrEmpty(title))
 				{
-					JArray items = new JArray();
-					foreach (JToken item in shelf.SelectTokens("..musicTwoRowItemRenderer"))
+					JsonArray items = new JsonArray();
+					foreach (JsonNode item in shelf.SelectTokens("..musicTwoRowItemRenderer"))
 					{
-						JObject track = ParseTrack(new JObject { ["musicTwoRowItemRenderer"] = item });
+						JsonObject track = ParseTrack(new JsonObject { ["musicTwoRowItemRenderer"] = item?.DeepClone() });
 						if (track.Count != 0)
 						{
 							string playlistId = item.SelectTokens("..navigationEndpoint.browseEndpoint.browseId").FirstOrDefault()?.ToString() ?? item.SelectTokens("..playNavigationEndpoint.watchEndpoint.playlistId").FirstOrDefault()?.ToString();
@@ -529,9 +530,9 @@ public class BackendService
 							items.Add(track);
 						}
 					}
-					foreach (JToken item2 in shelf.SelectTokens("..musicResponsiveListItemRenderer"))
+					foreach (JsonNode item2 in shelf.SelectTokens("..musicResponsiveListItemRenderer"))
 					{
-						JObject track2 = ParseTrack(new JObject { ["musicResponsiveListItemRenderer"] = item2 });
+						JsonObject track2 = ParseTrack(new JsonObject { ["musicResponsiveListItemRenderer"] = item2?.DeepClone() });
 						if (track2.Count != 0)
 						{
 							string playlistId2 = item2.SelectTokens("..navigationEndpoint.browseEndpoint.browseId").FirstOrDefault()?.ToString() ?? item2.SelectTokens("..playNavigationEndpoint.watchEndpoint.playlistId").FirstOrDefault()?.ToString();
@@ -544,7 +545,7 @@ public class BackendService
 					}
 					if (items.Count > 0)
 					{
-						shelves.Add(new JObject
+						shelves.Add(new JsonObject
 						{
 							["title"] = title,
 							["contents"] = items
@@ -556,7 +557,7 @@ public class BackendService
 		}
 	}
 
-	public async IAsyncEnumerable<JArray> GetHomeFeedStreamAsync([EnumeratorCancellation] CancellationToken token, int limit = 10)
+	public async IAsyncEnumerable<JsonArray> GetHomeFeedStreamAsync([EnumeratorCancellation] CancellationToken token, int limit = 10)
 	{
 		int num = -1;
 		BackendService backendService = this;
@@ -568,8 +569,8 @@ public class BackendService
 			string[] array = guestFeeds;
 			foreach (string feedId in array)
 			{
-				JObject payload = new JObject { ["browseId"] = feedId };
-				JArray shelves = ProcessShelves(await SendYoutubeiRequestAsync("browse", payload, token).ConfigureAwait(continueOnCapturedContext: false));
+				JsonObject payload = new JsonObject { ["browseId"] = feedId };
+				JsonArray shelves = ProcessShelves(await SendYoutubeiRequestAsync("browse", payload, token).ConfigureAwait(continueOnCapturedContext: false));
 				if (shelves.Count > 0)
 				{
 					yield return shelves;
@@ -577,13 +578,13 @@ public class BackendService
 			}
 			yield break;
 		}
-		JObject homePayload = new JObject { ["browseId"] = "FEmusic_home" };
-		JObject homeRes = await SendYoutubeiRequestAsync("browse", homePayload, token).ConfigureAwait(continueOnCapturedContext: false);
-		JArray initialShelves = ProcessShelves(homeRes);
-		JToken currentRes = homeRes;
+		JsonObject homePayload = new JsonObject { ["browseId"] = "FEmusic_home" };
+		JsonObject homeRes = await SendYoutubeiRequestAsync("browse", homePayload, token).ConfigureAwait(continueOnCapturedContext: false);
+		JsonArray initialShelves = ProcessShelves(homeRes);
+		JsonNode currentRes = homeRes;
 		for (int prefetchCount = 0; prefetchCount < 2; prefetchCount++)
 		{
-			if (initialShelves.Any((JToken jToken) => jToken["title"]?.ToString().ToLower().Contains("quick picks") ?? false))
+			if (initialShelves.Any((JsonNode? JsonNode) => JsonNode?["title"]?.ToString().ToLower().Contains("quick picks") ?? false))
 			{
 				break;
 			}
@@ -592,15 +593,15 @@ public class BackendService
 			{
 				break;
 			}
-			JObject cPayload = new JObject { ["continuation"] = continuation };
+			JsonObject cPayload = new JsonObject { ["continuation"] = continuation };
 			currentRes = await SendYoutubeiRequestAsync("browse", cPayload, token).ConfigureAwait(continueOnCapturedContext: false);
-			List<JToken>.Enumerator enumerator = ProcessShelves(currentRes).ToList().GetEnumerator();
+			List<JsonNode>.Enumerator enumerator = ProcessShelves(currentRes).ToList().GetEnumerator();
 			try
 			{
 				while (enumerator.MoveNext())
 				{
-					JToken s = enumerator.Current;
-					initialShelves.Add(s);
+					JsonNode s = enumerator.Current;
+					initialShelves.Add(s?.DeepClone());
 				}
 			}
 			finally
@@ -620,10 +621,10 @@ public class BackendService
 			string continuation2 = currentRes.SelectTokens("..nextContinuationData.continuation").FirstOrDefault()?.ToString() ?? currentRes.SelectTokens("..continuationCommand.token").FirstOrDefault()?.ToString();
 			if (!string.IsNullOrEmpty(continuation2))
 			{
-				JObject cPayload2 = new JObject { ["continuation"] = continuation2 };
+				JsonObject cPayload2 = new JsonObject { ["continuation"] = continuation2 };
 				currentRes = await SendYoutubeiRequestAsync("browse", cPayload2, token).ConfigureAwait(continueOnCapturedContext: false);
 				int i = shelvesFetched;
-				JArray contShelves = ProcessShelves(currentRes);
+				JsonArray contShelves = ProcessShelves(currentRes);
 				if (contShelves.Count > 0)
 				{
 					yield return contShelves;
@@ -636,18 +637,18 @@ public class BackendService
 			}
 			break;
 		}
-		JArray ProcessShelves(JToken root)
+		JsonArray ProcessShelves(JsonNode root)
 		{
-			JArray shelves2 = new JArray();
-			foreach (JToken shelf in root.SelectTokens("..musicCarouselShelfRenderer"))
+			JsonArray shelves2 = new JsonArray();
+			foreach (JsonNode shelf in root.SelectTokens("..musicCarouselShelfRenderer"))
 			{
 				string title = shelf.SelectTokens("..header..title.runs[0].text").FirstOrDefault()?.ToString() ?? "";
 				if (!string.IsNullOrEmpty(title) && !title.ToLower().Contains("music video") && !title.ToLower().Contains("music videos") && !title.ToLower().Contains("shows") && !title.ToLower().Contains("podcasts") && !title.ToLower().Contains("episodes"))
 				{
-					JArray items = new JArray();
-					foreach (JToken item in shelf.SelectTokens("..musicTwoRowItemRenderer"))
+					JsonArray items = new JsonArray();
+					foreach (JsonNode item in shelf.SelectTokens("..musicTwoRowItemRenderer"))
 					{
-						JObject track = ParseTrack(new JObject { ["musicTwoRowItemRenderer"] = item });
+						JsonObject track = ParseTrack(new JsonObject { ["musicTwoRowItemRenderer"] = item?.DeepClone() });
 						if (track.Count != 0)
 						{
 							track["isCard"] = true;
@@ -659,9 +660,9 @@ public class BackendService
 							items.Add(track);
 						}
 					}
-					foreach (JToken item2 in shelf.SelectTokens("..musicResponsiveListItemRenderer"))
+					foreach (JsonNode item2 in shelf.SelectTokens("..musicResponsiveListItemRenderer"))
 					{
-						JObject track2 = ParseTrack(new JObject { ["musicResponsiveListItemRenderer"] = item2 });
+						JsonObject track2 = ParseTrack(new JsonObject { ["musicResponsiveListItemRenderer"] = item2?.DeepClone() });
 						if (track2.Count != 0)
 						{
 							track2["isCard"] = false;
@@ -675,7 +676,7 @@ public class BackendService
 					}
 					if (items.Count > 0)
 					{
-						shelves2.Add(new JObject
+						shelves2.Add(new JsonObject
 						{
 							["title"] = title,
 							["contents"] = items
@@ -688,32 +689,32 @@ public class BackendService
 		}
 	}
 
-	public async IAsyncEnumerable<JArray> GetExploreFeedStreamAsync([EnumeratorCancellation] CancellationToken token)
+	public async IAsyncEnumerable<JsonArray> GetExploreFeedStreamAsync([EnumeratorCancellation] CancellationToken token)
 	{
 		await LoadAuthAsync();
 		string[] exploreFeeds = new string[4] { "FEmusic_explore", "FEmusic_charts", "FEmusic_new_releases", "FEmusic_moods_and_genres" };
 		string[] array = exploreFeeds;
 		foreach (string feedId in array)
 		{
-			JObject payload = new JObject { ["browseId"] = feedId };
-			JArray shelves = ProcessShelves(await SendYoutubeiRequestAsync("browse", payload, token).ConfigureAwait(continueOnCapturedContext: false));
+			JsonObject payload = new JsonObject { ["browseId"] = feedId };
+			JsonArray shelves = ProcessShelves(await SendYoutubeiRequestAsync("browse", payload, token).ConfigureAwait(continueOnCapturedContext: false));
 			if (shelves.Count > 0)
 			{
 				yield return shelves;
 			}
 		}
-		JArray ProcessShelves(JToken root)
+		JsonArray ProcessShelves(JsonNode root)
 		{
-			JArray shelves2 = new JArray();
-			foreach (JToken shelf in root.SelectTokens("..musicCarouselShelfRenderer"))
+			JsonArray shelves2 = new JsonArray();
+			foreach (JsonNode shelf in root.SelectTokens("..musicCarouselShelfRenderer"))
 			{
 				string title = shelf.SelectTokens("..header..title.runs[0].text").FirstOrDefault()?.ToString() ?? "";
 				if (!string.IsNullOrEmpty(title) && !title.ToLower().Contains("music video") && !title.ToLower().Contains("music videos") && !title.ToLower().Contains("shows") && !title.ToLower().Contains("podcasts") && !title.ToLower().Contains("episodes"))
 				{
-					JArray items = new JArray();
-					foreach (JToken item in shelf.SelectTokens("..musicTwoRowItemRenderer"))
+					JsonArray items = new JsonArray();
+					foreach (JsonNode item in shelf.SelectTokens("..musicTwoRowItemRenderer"))
 					{
-						JObject track = ParseTrack(new JObject { ["musicTwoRowItemRenderer"] = item });
+						JsonObject track = ParseTrack(new JsonObject { ["musicTwoRowItemRenderer"] = item?.DeepClone() });
 						if (track.Count != 0)
 						{
 							track["isCard"] = true;
@@ -725,9 +726,9 @@ public class BackendService
 							items.Add(track);
 						}
 					}
-					foreach (JToken item2 in shelf.SelectTokens("..musicResponsiveListItemRenderer"))
+					foreach (JsonNode item2 in shelf.SelectTokens("..musicResponsiveListItemRenderer"))
 					{
-						JObject track2 = ParseTrack(new JObject { ["musicResponsiveListItemRenderer"] = item2 });
+						JsonObject track2 = ParseTrack(new JsonObject { ["musicResponsiveListItemRenderer"] = item2?.DeepClone() });
 						if (track2.Count != 0)
 						{
 							track2["isCard"] = false;
@@ -741,7 +742,7 @@ public class BackendService
 					}
 					if (items.Count > 0)
 					{
-						shelves2.Add(new JObject
+						shelves2.Add(new JsonObject
 						{
 							["title"] = title,
 							["contents"] = items
@@ -753,9 +754,9 @@ public class BackendService
 		}
 	}
 
-	public async Task<JObject> FetchAutoplayNextAsync(string videoId, CancellationToken token)
+	public async Task<JsonObject> FetchAutoplayNextAsync(string videoId, CancellationToken token)
 	{
-		JObject payload = new JObject
+		JsonObject payload = new JsonObject
 		{
 			["enablePersistentPlaylistPanel"] = true,
 			["isAudioOnly"] = true,
@@ -763,11 +764,11 @@ public class BackendService
 			["videoId"] = videoId,
 			["playlistId"] = "RDAMVM" + videoId
 		};
-		JObject res = await SendYoutubeiRequestAsync("next", payload, token).ConfigureAwait(continueOnCapturedContext: false);
-		JArray tracks = new JArray();
-		foreach (JToken item in res.SelectTokens("..playlistPanelVideoRenderer"))
+		JsonObject res = await SendYoutubeiRequestAsync("next", payload, token).ConfigureAwait(continueOnCapturedContext: false);
+		JsonArray tracks = new JsonArray();
+		foreach (JsonNode item in res.SelectTokens("..playlistPanelVideoRenderer"))
 		{
-			JObject track = ParseTrack(new JObject { ["playlistPanelVideoRenderer"] = item });
+			JsonObject track = ParseTrack(new JsonObject { ["playlistPanelVideoRenderer"] = item?.DeepClone() });
 			if (track.Count != 0 && !string.IsNullOrEmpty(track["videoId"]?.ToString()) && (!ExcludePlainVideoResults || !IsPlainVideoResult(track)))
 			{
 				tracks.Add(track);
@@ -775,32 +776,32 @@ public class BackendService
 		}
 		if (tracks.Count == 0)
 		{
-			foreach (JToken item2 in res.SelectTokens("..musicResponsiveListItemRenderer"))
+			foreach (JsonNode item2 in res.SelectTokens("..musicResponsiveListItemRenderer"))
 			{
-				JObject track2 = ParseTrack(new JObject { ["musicResponsiveListItemRenderer"] = item2 });
+				JsonObject track2 = ParseTrack(new JsonObject { ["musicResponsiveListItemRenderer"] = item2?.DeepClone() });
 				if (track2.Count != 0 && !string.IsNullOrEmpty(track2["videoId"]?.ToString()) && (!ExcludePlainVideoResults || !IsPlainVideoResult(track2)))
 				{
 					tracks.Add(track2);
 				}
 			}
 		}
-		return new JObject { ["data"] = new JObject { ["tracks"] = tracks } };
+		return new JsonObject { ["data"] = new JsonObject { ["tracks"] = tracks } };
 	}
 
-	public async Task<JObject> GetMixTracksAsync(string playlistId, CancellationToken token)
+	public async Task<JsonObject> GetMixTracksAsync(string playlistId, CancellationToken token)
 	{
-		JObject payload = new JObject
+		JsonObject payload = new JsonObject
 		{
 			["enablePersistentPlaylistPanel"] = true,
 			["isAudioOnly"] = true,
 			["tunerSettingValue"] = "AUTOMIX_SETTING_NORMAL",
 			["playlistId"] = playlistId
 		};
-		JObject res = await SendYoutubeiRequestAsync("next", payload, token).ConfigureAwait(continueOnCapturedContext: false);
-		JArray tracks = new JArray();
-		foreach (JToken item in res.SelectTokens("..playlistPanelVideoRenderer"))
+		JsonObject res = await SendYoutubeiRequestAsync("next", payload, token).ConfigureAwait(continueOnCapturedContext: false);
+		JsonArray tracks = new JsonArray();
+		foreach (JsonNode item in res.SelectTokens("..playlistPanelVideoRenderer"))
 		{
-			JObject track = ParseTrack(new JObject { ["playlistPanelVideoRenderer"] = item });
+			JsonObject track = ParseTrack(new JsonObject { ["playlistPanelVideoRenderer"] = item?.DeepClone() });
 			if (track.Count != 0 && !string.IsNullOrEmpty(track["videoId"]?.ToString()) && (!ExcludePlainVideoResults || !IsPlainVideoResult(track)))
 			{
 				tracks.Add(track);
@@ -808,36 +809,36 @@ public class BackendService
 		}
 		if (tracks.Count == 0)
 		{
-			foreach (JToken item2 in res.SelectTokens("..musicResponsiveListItemRenderer"))
+			foreach (JsonNode item2 in res.SelectTokens("..musicResponsiveListItemRenderer"))
 			{
-				JObject track2 = ParseTrack(new JObject { ["musicResponsiveListItemRenderer"] = item2 });
+				JsonObject track2 = ParseTrack(new JsonObject { ["musicResponsiveListItemRenderer"] = item2?.DeepClone() });
 				if (track2.Count != 0 && !string.IsNullOrEmpty(track2["videoId"]?.ToString()) && (!ExcludePlainVideoResults || !IsPlainVideoResult(track2)))
 				{
 					tracks.Add(track2);
 				}
 			}
 		}
-		return new JObject { ["data"] = new JObject
+		return new JsonObject { ["data"] = new JsonObject
 		{
 			["tracks"] = tracks,
-			["thumbnails"] = new JArray()
+			["thumbnails"] = new JsonArray()
 		} };
 	}
 
-	public async Task<JObject> GetPlaylistTracksAsync(string playlistId, CancellationToken token)
+	public async Task<JsonObject> GetPlaylistTracksAsync(string playlistId, CancellationToken token)
 	{
-		JObject payload = new JObject { ["browseId"] = playlistId };
-		JObject res = await SendYoutubeiRequestAsync("browse", payload, token).ConfigureAwait(continueOnCapturedContext: false);
-		JArray tracks = new JArray();
-		foreach (JToken item in res.SelectTokens("..musicResponsiveListItemRenderer"))
+		JsonObject payload = new JsonObject { ["browseId"] = playlistId };
+		JsonObject res = await SendYoutubeiRequestAsync("browse", payload, token).ConfigureAwait(continueOnCapturedContext: false);
+		JsonArray tracks = new JsonArray();
+		foreach (JsonNode item in res.SelectTokens("..musicResponsiveListItemRenderer"))
 		{
-			JObject track = ParseTrack(new JObject { ["musicResponsiveListItemRenderer"] = item });
+			JsonObject track = ParseTrack(new JsonObject { ["musicResponsiveListItemRenderer"] = item?.DeepClone() });
 			if (track.Count != 0 && !string.IsNullOrEmpty(track["videoId"]?.ToString()) && (!ExcludePlainVideoResults || !IsPlainVideoResult(track)))
 			{
 				tracks.Add(track);
 			}
 		}
-		JToken header = res.SelectTokens("..musicDetailHeaderRenderer").FirstOrDefault() ?? res.SelectTokens("..musicEditablePlaylistDetailHeaderRenderer").FirstOrDefault() ?? res.SelectTokens("..musicResponsiveHeaderRenderer").FirstOrDefault();
+		JsonNode header = res.SelectTokens("..musicDetailHeaderRenderer").FirstOrDefault() ?? res.SelectTokens("..musicEditablePlaylistDetailHeaderRenderer").FirstOrDefault() ?? res.SelectTokens("..musicResponsiveHeaderRenderer").FirstOrDefault();
 		string headerTitle = header?.SelectToken("title.runs[0].text")?.ToString() ?? header?.SelectToken("title.text")?.ToString() ?? "";
 		string description = string.Join("", (from t in header?.SelectTokens("..description.runs[*].text")
 			select t.ToString()) ?? Enumerable.Empty<string>()).Trim();
@@ -846,39 +847,39 @@ public class BackendService
 			description = string.Join("", from t in res.SelectTokens("..musicDescriptionShelfRenderer..description.runs[*].text")
 				select t.ToString()).Trim();
 		}
-		JArray artists = new JArray();
+		JsonArray artists = new JsonArray();
 		string year = "";
-		JArray allRuns = new JArray();
-		if (header?.SelectTokens("..subtitle.runs").FirstOrDefault() is JArray sub1)
+		JsonArray allRuns = new JsonArray();
+		if (header?.SelectTokens("..subtitle.runs").FirstOrDefault() is JsonArray sub1)
 		{
-			foreach (JToken r in sub1)
+			foreach (JsonNode r in sub1)
 			{
-				allRuns.Add(r);
+				allRuns.Add(r?.DeepClone());
 			}
 		}
-		if (header?.SelectTokens("..secondSubtitle.runs").FirstOrDefault() is JArray sub2)
+		if (header?.SelectTokens("..secondSubtitle.runs").FirstOrDefault() is JsonArray sub2)
 		{
-			foreach (JToken r2 in sub2)
+			foreach (JsonNode r2 in sub2)
 			{
-				allRuns.Add(r2);
+				allRuns.Add(r2?.DeepClone());
 			}
 		}
-		if (header?.SelectTokens("..straplineTextOne.runs").FirstOrDefault() is JArray strap1)
+		if (header?.SelectTokens("..straplineTextOne.runs").FirstOrDefault() is JsonArray strap1)
 		{
-			foreach (JToken r3 in strap1)
+			foreach (JsonNode r3 in strap1)
 			{
-				allRuns.Add(r3);
+				allRuns.Add(r3?.DeepClone());
 			}
 		}
 		if (allRuns.Count > 0)
 		{
-			foreach (JToken item2 in allRuns)
+			foreach (JsonNode item2 in allRuns)
 			{
 				string text = item2["text"]?.ToString() ?? "";
 				string nav = item2.SelectToken("navigationEndpoint.browseEndpoint.browseId")?.ToString() ?? "";
 				if (nav.StartsWith("UC") && !string.IsNullOrWhiteSpace(text))
 				{
-					artists.Add(new JObject
+					artists.Add(new JsonObject
 					{
 						["name"] = text,
 						["id"] = nav
@@ -893,7 +894,7 @@ public class BackendService
 					string lowerText = text.ToLowerInvariant();
 					if (artists.Count == 0 && !lowerText.Contains(" views") && !lowerText.Contains(" plays") && !lowerText.Contains(" song") && !lowerText.Contains(" minute") && !lowerText.Contains(" hour") && !Regex.IsMatch(text, "^\\d+$"))
 					{
-						artists.Add(new JObject
+						artists.Add(new JsonObject
 						{
 							["name"] = text.Trim(),
 							["id"] = ""
@@ -902,7 +903,7 @@ public class BackendService
 				}
 			}
 		}
-		JObject data = new JObject
+		JsonObject data = new JsonObject
 		{
 			["tracks"] = tracks,
 			["thumbnails"] = GetThumbnails(header)
@@ -923,53 +924,53 @@ public class BackendService
 		{
 			data["year"] = year;
 		}
-		return new JObject { ["data"] = data };
+		return new JsonObject { ["data"] = data };
 	}
 
-	public async Task<JObject> GetLikedSongsAsync(CancellationToken token)
+	public async Task<JsonObject> GetLikedSongsAsync(CancellationToken token)
 	{
-		JObject payload = new JObject { ["browseId"] = "FEmusic_liked_videos" };
-		JObject obj = await SendYoutubeiRequestAsync("browse", payload, token).ConfigureAwait(continueOnCapturedContext: false);
-		JArray tracks = new JArray();
-		foreach (JToken item in obj.SelectTokens("..musicResponsiveListItemRenderer"))
+		JsonObject payload = new JsonObject { ["browseId"] = "FEmusic_liked_videos" };
+		JsonObject obj = await SendYoutubeiRequestAsync("browse", payload, token).ConfigureAwait(continueOnCapturedContext: false);
+		JsonArray tracks = new JsonArray();
+		foreach (JsonNode item in obj.SelectTokens("..musicResponsiveListItemRenderer"))
 		{
-			JObject track = ParseTrack(new JObject { ["musicResponsiveListItemRenderer"] = item });
+			JsonObject track = ParseTrack(new JsonObject { ["musicResponsiveListItemRenderer"] = item?.DeepClone() });
 			if (track.Count != 0 && !string.IsNullOrEmpty(track["videoId"]?.ToString()))
 			{
 				tracks.Add(track);
 			}
 		}
-		return new JObject { ["data"] = new JObject { ["tracks"] = tracks } };
+		return new JsonObject { ["data"] = new JsonObject { ["tracks"] = tracks } };
 	}
 
-	public async Task<JObject> GetHistoryAsync(CancellationToken token)
+	public async Task<JsonObject> GetHistoryAsync(CancellationToken token)
 	{
-		JObject payload = new JObject { ["browseId"] = "FEmusic_history" };
-		JObject obj = await SendYoutubeiRequestAsync("browse", payload, token).ConfigureAwait(continueOnCapturedContext: false);
-		JArray tracks = new JArray();
-		foreach (JToken item in obj.SelectTokens("..musicResponsiveListItemRenderer"))
+		JsonObject payload = new JsonObject { ["browseId"] = "FEmusic_history" };
+		JsonObject obj = await SendYoutubeiRequestAsync("browse", payload, token).ConfigureAwait(continueOnCapturedContext: false);
+		JsonArray tracks = new JsonArray();
+		foreach (JsonNode item in obj.SelectTokens("..musicResponsiveListItemRenderer"))
 		{
-			JObject track = ParseTrack(new JObject { ["musicResponsiveListItemRenderer"] = item });
+			JsonObject track = ParseTrack(new JsonObject { ["musicResponsiveListItemRenderer"] = item?.DeepClone() });
 			if (track.Count != 0 && !string.IsNullOrEmpty(track["videoId"]?.ToString()))
 			{
 				tracks.Add(track);
 			}
 		}
-		return new JObject { ["data"] = tracks };
+		return new JsonObject { ["data"] = tracks };
 	}
 
-	public async Task<JObject> GetLibraryPlaylistsAsync(CancellationToken token)
+	public async Task<JsonObject> GetLibraryPlaylistsAsync(CancellationToken token)
 	{
-		JObject payload = new JObject { ["browseId"] = "FEmusic_liked_playlists" };
-		JObject obj = await SendYoutubeiRequestAsync("browse", payload, token).ConfigureAwait(continueOnCapturedContext: false);
-		JArray playlists = new JArray();
-		foreach (JToken item in obj.SelectTokens("..musicTwoRowItemRenderer"))
+		JsonObject payload = new JsonObject { ["browseId"] = "FEmusic_liked_playlists" };
+		JsonObject obj = await SendYoutubeiRequestAsync("browse", payload, token).ConfigureAwait(continueOnCapturedContext: false);
+		JsonArray playlists = new JsonArray();
+		foreach (JsonNode item in obj.SelectTokens("..musicTwoRowItemRenderer"))
 		{
 			string browseId = item.SelectTokens("..navigationEndpoint.browseEndpoint.browseId").FirstOrDefault()?.ToString() ?? "";
 			string title = item.SelectTokens("..title.runs[0].text").FirstOrDefault()?.ToString() ?? "";
 			if (!string.IsNullOrEmpty(browseId))
 			{
-				playlists.Add(new JObject
+				playlists.Add(new JsonObject
 				{
 					["playlistId"] = browseId,
 					["title"] = title,
@@ -977,11 +978,11 @@ public class BackendService
 				});
 			}
 		}
-		JArray albums = new JArray();
-		JObject payload2 = new JObject { ["browseId"] = "FEmusic_liked_albums" };
+		JsonArray albums = new JsonArray();
+		JsonObject payload2 = new JsonObject { ["browseId"] = "FEmusic_liked_albums" };
 		try
 		{
-			foreach (JToken item2 in (await SendYoutubeiRequestAsync("browse", payload2, token).ConfigureAwait(continueOnCapturedContext: false)).SelectTokens("..musicTwoRowItemRenderer"))
+			foreach (JsonNode item2 in (await SendYoutubeiRequestAsync("browse", payload2, token).ConfigureAwait(continueOnCapturedContext: false)).SelectTokens("..musicTwoRowItemRenderer"))
 			{
 				string browseId2 = item2.SelectTokens("..navigationEndpoint.browseEndpoint.browseId").FirstOrDefault()?.ToString() ?? "";
 				string title2 = item2.SelectTokens("..title.runs[0].text").FirstOrDefault()?.ToString() ?? "";
@@ -989,19 +990,19 @@ public class BackendService
 				{
 					continue;
 				}
-				JObject track = ParseTrack(new JObject { ["musicTwoRowItemRenderer"] = item2 });
+				JsonObject track = ParseTrack(new JsonObject { ["musicTwoRowItemRenderer"] = item2?.DeepClone() });
 				if (track.Count != 0)
 				{
-					JObject albObj = new JObject
+					JsonObject albObj = new JsonObject
 					{
 						["browseId"] = browseId2,
 						["title"] = title2,
-						["thumbnails"] = track["thumbnails"],
-						["artists"] = track["artists"]
+						["thumbnails"] = track["thumbnails"]?.DeepClone(),
+						["artists"] = track["artists"]?.DeepClone()
 					};
 					if (track["year"] != null)
 					{
-						albObj["year"] = track["year"];
+						albObj["year"] = track["year"]?.DeepClone();
 					}
 					albums.Add(albObj);
 				}
@@ -1010,21 +1011,21 @@ public class BackendService
 		catch
 		{
 		}
-		return new JObject
+		return new JsonObject
 		{
 			["data"] = playlists,
 			["albums"] = albums
 		};
 	}
 
-	public async Task<JObject> SearchAsync(string query, CancellationToken token)
+	public async Task<JsonObject> SearchAsync(string query, CancellationToken token)
 	{
-		JObject payload = new JObject { ["query"] = query };
-		JObject obj = await SendYoutubeiRequestAsync("search", payload, token).ConfigureAwait(continueOnCapturedContext: false);
-		JArray songs = new JArray();
-		JArray artists = new JArray();
-		JArray albums = new JArray();
-		JToken topResult = obj.SelectTokens("..musicCardShelfRenderer").FirstOrDefault();
+		JsonObject payload = new JsonObject { ["query"] = query };
+		JsonObject obj = await SendYoutubeiRequestAsync("search", payload, token).ConfigureAwait(continueOnCapturedContext: false);
+		JsonArray songs = new JsonArray();
+		JsonArray artists = new JsonArray();
+		JsonArray albums = new JsonArray();
+		JsonNode topResult = obj.SelectTokens("..musicCardShelfRenderer").FirstOrDefault();
 		if (topResult != null)
 		{
 			string title = topResult.SelectTokens("..title.runs[0].text").FirstOrDefault()?.ToString() ?? "";
@@ -1033,17 +1034,12 @@ public class BackendService
 			string browseId = topResult.SelectTokens("..browseEndpoint.browseId").FirstOrDefault()?.ToString() ?? "";
 			if (text.Contains("artist") && !string.IsNullOrEmpty(browseId))
 			{
-				artists.Add(new JObject
-				{
-					["browseId"] = browseId,
-					["artist"] = title,
-					["thumbnails"] = GetThumbnails(topResult)
-				});
+				artists.Add(new JsonObject { ["browseId"] = browseId, ["artist"] = title, ["thumbnails"] = GetThumbnails(topResult)?.DeepClone() });
 			}
 		}
-		foreach (JToken item in obj.SelectTokens("..musicResponsiveListItemRenderer"))
+		foreach (JsonNode item in obj.SelectTokens("..musicResponsiveListItemRenderer"))
 		{
-			JObject track = ParseTrack(new JObject { ["musicResponsiveListItemRenderer"] = item });
+			JsonObject track = ParseTrack(new JsonObject { ["musicResponsiveListItemRenderer"] = item?.DeepClone() });
 			if (track.Count == 0)
 			{
 				continue;
@@ -1062,11 +1058,11 @@ public class BackendService
 				string browseId2 = item.SelectTokens("..navigationEndpoint.browseEndpoint.browseId").FirstOrDefault()?.ToString() ?? "";
 				if (!string.IsNullOrEmpty(browseId2))
 				{
-					artists.Add(new JObject
+					artists.Add(new JsonObject
 					{
 						["browseId"] = browseId2,
-						["artist"] = track["title"],
-						["thumbnails"] = track["thumbnails"]
+						["artist"] = track["title"]?.DeepClone(),
+						["thumbnails"] = track["thumbnails"]?.DeepClone()
 					});
 				}
 			}
@@ -1081,16 +1077,16 @@ public class BackendService
 				string browseId3 = browseIds.FirstOrDefault((string b) => b.StartsWith("MPRE")) ?? browseIds.FirstOrDefault((string b) => !b.StartsWith("UC")) ?? "";
 				if (!string.IsNullOrEmpty(browseId3))
 				{
-					JObject albObj = new JObject
+					JsonObject albObj = new JsonObject
 					{
 						["browseId"] = browseId3,
-						["title"] = track["title"],
-						["thumbnails"] = track["thumbnails"],
-						["artists"] = track["artists"]
+						["title"] = track["title"]?.DeepClone(),
+						["thumbnails"] = track["thumbnails"]?.DeepClone(),
+						["artists"] = track["artists"]?.DeepClone()
 					};
 					if (track["year"] != null)
 					{
-						albObj["year"] = track["year"];
+						albObj["year"] = track["year"]?.DeepClone();
 					}
 					albums.Add(albObj);
 				}
@@ -1098,9 +1094,9 @@ public class BackendService
 		}
 		if (songs.Count > 1)
 		{
-			songs = new JArray(songs.OrderByDescending(RankSong));
+			songs = new JsonArray(songs.OrderByDescending(RankSong).Select(x => x?.DeepClone()).ToArray());
 		}
-		return new JObject { ["data"] = new JObject
+		return new JsonObject { ["data"] = new JsonObject
 		{
 			["songs"] = songs,
 			["artists"] = artists,
@@ -1122,11 +1118,11 @@ public class BackendService
 			}
 			return sb.ToString();
 		}
-		int RankSong(JToken song)
+		int RankSong(JsonNode? song)
 		{
+			if (song == null) return 0;
 			string title2 = song["title"]?.ToString() ?? "";
-			string s = string.Join(" ", from x in song.SelectTokens("artists[*].name")
-				select x.ToString());
+			string s = string.Join(" ", from x in (song["artists"] as JsonArray ?? new JsonArray()) select x["name"]?.ToString());
 			string normQuery = NormalizeForRank(query);
 			string normTitle = NormalizeForRank(title2);
 			string normArtists = NormalizeForRank(s);
@@ -1191,20 +1187,20 @@ public class BackendService
 		}
 	}
 
-	public async Task<JObject> GetArtistInfoAsync(string channelId, CancellationToken token)
+	public async Task<JsonObject> GetArtistInfoAsync(string channelId, CancellationToken token)
 	{
-		JObject payload = new JObject { ["browseId"] = channelId };
-		JObject res = await SendYoutubeiRequestAsync("browse", payload, token).ConfigureAwait(continueOnCapturedContext: false);
+		JsonObject payload = new JsonObject { ["browseId"] = channelId };
+		JsonObject res = await SendYoutubeiRequestAsync("browse", payload, token).ConfigureAwait(continueOnCapturedContext: false);
 		string name = res.SelectTokens("..musicImmersiveHeaderRenderer..title.runs[0].text").FirstOrDefault()?.ToString() ?? res.SelectTokens("..musicVisualHeaderRenderer..title.runs[0].text").FirstOrDefault()?.ToString() ?? "Artist";
-		JArray thumbnails = GetThumbnails(res.SelectTokens("..musicImmersiveHeaderRenderer").FirstOrDefault() ?? res.SelectTokens("..musicVisualHeaderRenderer").FirstOrDefault());
+		JsonArray thumbnails = GetThumbnails(res.SelectTokens("..musicImmersiveHeaderRenderer").FirstOrDefault() ?? res.SelectTokens("..musicVisualHeaderRenderer").FirstOrDefault());
 		string desc = res.SelectTokens("..musicImmersiveHeaderRenderer.description.runs[0].text").FirstOrDefault()?.ToString() ?? "";
 		string subs = res.SelectTokens("..subscriberCountText.runs[0].text").FirstOrDefault()?.ToString() ?? res.SelectTokens("..subscriberCountText.simpleText").FirstOrDefault()?.ToString() ?? "";
-		JArray albumsArr = new JArray();
-		JArray singlesArr = new JArray();
-		JArray similarArtistsArr = new JArray();
-		List<JToken> shelvesEnum = res.SelectTokens("..musicCarouselShelfRenderer").ToList();
-		List<Task<(string, JArray)>> fetchTasks = new List<Task<(string, JArray)>>();
-		foreach (JToken shelf in shelvesEnum)
+		JsonArray albumsArr = new JsonArray();
+		JsonArray singlesArr = new JsonArray();
+		JsonArray similarArtistsArr = new JsonArray();
+		List<JsonNode> shelvesEnum = res.SelectTokens("..musicCarouselShelfRenderer").ToList();
+		List<Task<(string, JsonArray)>> fetchTasks = new List<Task<(string, JsonArray)>>();
+		foreach (JsonNode shelf in shelvesEnum)
 		{
 			string shelfTitle = shelf.SelectTokens("..header..title.runs[0].text").FirstOrDefault()?.ToString().ToLower() ?? "";
 			if (!shelfTitle.Contains("album") && !shelfTitle.Contains("single") && !shelfTitle.Contains("ep"))
@@ -1218,35 +1214,35 @@ public class BackendService
 			{
 				fetchTasks.Add(Task.Run(async delegate
 				{
-					JObject p = new JObject { ["browseId"] = seeAllBrowseId };
+					JsonObject p = new JsonObject { ["browseId"] = seeAllBrowseId };
 					if (!string.IsNullOrEmpty(seeAllParams))
 					{
 						p["params"] = seeAllParams;
 					}
-					JObject obj2 = await SendYoutubeiRequestAsync("browse", p, token).ConfigureAwait(continueOnCapturedContext: false);
-					JArray items2 = new JArray();
-					foreach (JToken item5 in obj2.SelectTokens("..musicTwoRowItemRenderer"))
+					JsonObject obj2 = await SendYoutubeiRequestAsync("browse", p, token).ConfigureAwait(continueOnCapturedContext: false);
+					JsonArray items2 = new JsonArray();
+					foreach (JsonNode item5 in obj2.SelectTokens("..musicTwoRowItemRenderer"))
 					{
-						JObject track3 = ParseTrack(new JObject { ["musicTwoRowItemRenderer"] = item5 });
+						JsonObject track3 = ParseTrack(new JsonObject { ["musicTwoRowItemRenderer"] = item5?.DeepClone() });
 						if (track3.Count != 0)
 						{
 							string browseId3 = item5.SelectTokens("..navigationEndpoint.browseEndpoint.browseId").FirstOrDefault()?.ToString() ?? "";
 							if (!string.IsNullOrEmpty(browseId3))
 							{
-								JObject albObj2 = new JObject
+								JsonObject albObj2 = new JsonObject
 								{
 									["browseId"] = browseId3,
-									["title"] = track3["title"],
-									["thumbnails"] = track3["thumbnails"],
-									["artists"] = track3["artists"]
+									["title"] = track3["title"]?.DeepClone(),
+									["thumbnails"] = track3["thumbnails"]?.DeepClone(),
+									["artists"] = track3["artists"]?.DeepClone()
 								};
 								if (track3["year"] != null)
 								{
-									albObj2["year"] = track3["year"];
+									albObj2["year"] = track3["year"]?.DeepClone();
 								}
 								if (track3["releaseType"] != null)
 								{
-									albObj2["releaseType"] = track3["releaseType"];
+									albObj2["releaseType"] = track3["releaseType"]?.DeepClone();
 								}
 								items2.Add(albObj2);
 							}
@@ -1256,10 +1252,10 @@ public class BackendService
 				}));
 				continue;
 			}
-			JArray items = new JArray();
-			foreach (JToken item in shelf.SelectTokens("..musicTwoRowItemRenderer"))
+			JsonArray items = new JsonArray();
+			foreach (JsonNode item in shelf.SelectTokens("..musicTwoRowItemRenderer"))
 			{
-				JObject track = ParseTrack(new JObject { ["musicTwoRowItemRenderer"] = item });
+				JsonObject track = ParseTrack(new JsonObject { ["musicTwoRowItemRenderer"] = item?.DeepClone() });
 				if (track.Count == 0)
 				{
 					continue;
@@ -1267,103 +1263,103 @@ public class BackendService
 				string browseId = item.SelectTokens("..navigationEndpoint.browseEndpoint.browseId").FirstOrDefault()?.ToString() ?? "";
 				if (!string.IsNullOrEmpty(browseId))
 				{
-					JObject albObj = new JObject
+					JsonObject albObj = new JsonObject
 					{
 						["browseId"] = browseId,
-						["title"] = track["title"],
-						["thumbnails"] = track["thumbnails"],
-						["artists"] = track["artists"]
+						["title"] = track["title"]?.DeepClone(),
+						["thumbnails"] = track["thumbnails"]?.DeepClone(),
+						["artists"] = track["artists"]?.DeepClone()
 					};
 					if (track["year"] != null)
 					{
-						albObj["year"] = track["year"];
+						albObj["year"] = track["year"]?.DeepClone();
 					}
 					if (track["releaseType"] != null)
 					{
-						albObj["releaseType"] = track["releaseType"];
+						albObj["releaseType"] = track["releaseType"]?.DeepClone();
 					}
 					items.Add(albObj);
 				}
 			}
 			fetchTasks.Add(Task.FromResult((category, items)));
 		}
-		(string, JArray)[] obj = await Task.WhenAll(fetchTasks);
-		List<JObject> flatAlbums = new List<JObject>();
-		List<JObject> flatSingles = new List<JObject>();
-		(string, JArray)[] array = obj;
+		(string, JsonArray)[] obj = await Task.WhenAll(fetchTasks);
+		List<JsonObject> flatAlbums = new List<JsonObject>();
+		List<JsonObject> flatSingles = new List<JsonObject>();
+		(string, JsonArray)[] array = obj;
 		for (int num = 0; num < array.Length; num++)
 		{
-			(string, JArray) resTuple = array[num];
+			(string, JsonArray) resTuple = array[num];
 			if (resTuple.Item1 == "album")
 			{
-				foreach (JToken item2 in resTuple.Item2)
+				foreach (JsonNode item2 in resTuple.Item2)
 				{
-					flatAlbums.Add((JObject)item2);
+					flatAlbums.Add((JsonObject)item2);
 				}
 				continue;
 			}
-			foreach (JToken item3 in resTuple.Item2)
+			foreach (JsonNode item3 in resTuple.Item2)
 			{
-				flatSingles.Add((JObject)item3);
+				flatSingles.Add((JsonObject)item3);
 			}
 		}
-		flatAlbums = flatAlbums.OrderByDescending((JObject jObject) => (jObject["year"] != null && int.TryParse(jObject["year"].ToString(), out var result)) ? result : 0).ToList();
-		foreach (JObject a in flatAlbums)
+		flatAlbums = flatAlbums.OrderByDescending((JsonObject JsonObject) => (JsonObject["year"] != null && int.TryParse(JsonObject["year"].ToString(), out var result)) ? result : 0).ToList();
+		foreach (JsonObject a in flatAlbums)
 		{
-			albumsArr.Add(a);
+			albumsArr.Add(a?.DeepClone());
 		}
-		flatSingles = flatSingles.OrderByDescending((JObject jObject) => (jObject["year"] != null && int.TryParse(jObject["year"].ToString(), out var result)) ? result : 0).ToList();
-		foreach (JObject a2 in flatSingles)
+		flatSingles = flatSingles.OrderByDescending((JsonObject JsonObject) => (JsonObject["year"] != null && int.TryParse(JsonObject["year"].ToString(), out var result)) ? result : 0).ToList();
+		foreach (JsonObject a2 in flatSingles)
 		{
-			singlesArr.Add(a2);
+			singlesArr.Add(a2?.DeepClone());
 		}
-		foreach (JToken shelf2 in shelvesEnum)
+		foreach (JsonNode shelf2 in shelvesEnum)
 		{
 			string shelfTitle2 = shelf2.SelectTokens("..header..title.runs[0].text").FirstOrDefault()?.ToString().ToLower() ?? "";
 			if (!shelfTitle2.Contains("fans might also like") && !shelfTitle2.Contains("similar artists"))
 			{
 				continue;
 			}
-			foreach (JToken item4 in shelf2.SelectTokens("..musicTwoRowItemRenderer"))
+			foreach (JsonNode item4 in shelf2.SelectTokens("..musicTwoRowItemRenderer"))
 			{
-				JObject track2 = ParseTrack(new JObject { ["musicTwoRowItemRenderer"] = item4 });
+				JsonObject track2 = ParseTrack(new JsonObject { ["musicTwoRowItemRenderer"] = item4?.DeepClone() });
 				if (track2.Count != 0)
 				{
 					string browseId2 = item4.SelectTokens("..navigationEndpoint.browseEndpoint.browseId").FirstOrDefault()?.ToString() ?? "";
 					if (!string.IsNullOrEmpty(browseId2))
 					{
-						similarArtistsArr.Add(new JObject
+						similarArtistsArr.Add(new JsonObject
 						{
 							["browseId"] = browseId2,
-							["title"] = track2["title"],
-							["thumbnails"] = track2["thumbnails"]
+							["title"] = track2["title"]?.DeepClone(),
+							["thumbnails"] = track2["thumbnails"]?.DeepClone()
 						});
 					}
 				}
 			}
 		}
-		JObject dataObj = new JObject
+		JsonObject dataObj = new JsonObject
 		{
 			["name"] = name,
 			["thumbnails"] = thumbnails,
 			["description"] = desc,
 			["subscribers"] = subs,
-			["albums"] = new JObject { ["results"] = albumsArr },
-			["singles"] = new JObject { ["results"] = singlesArr },
+			["albums"] = new JsonObject { ["results"] = albumsArr },
+			["singles"] = new JsonObject { ["results"] = singlesArr },
 			["similarArtists"] = similarArtistsArr
 		};
-		return new JObject { ["data"] = dataObj };
+		return new JsonObject { ["data"] = dataObj };
 	}
 
-	public async Task<JObject> GetArtistSongsAsync(string channelId, string artistName, CancellationToken token, int limit = 500)
+	public async Task<JsonObject> GetArtistSongsAsync(string channelId, string artistName, CancellationToken token, int limit = 500)
 	{
-		JObject payload = new JObject { ["browseId"] = channelId };
-		JObject obj = await SendYoutubeiRequestAsync("browse", payload, token).ConfigureAwait(continueOnCapturedContext: false);
-		JArray tracks = new JArray();
+		JsonObject payload = new JsonObject { ["browseId"] = channelId };
+		JsonObject obj = await SendYoutubeiRequestAsync("browse", payload, token).ConfigureAwait(continueOnCapturedContext: false);
+		JsonArray tracks = new JsonArray();
 		string songsBrowseId = "";
-		List<JToken> shelvesEnum = obj.SelectTokens("..musicShelfRenderer").ToList();
-		JToken songsShelf = null;
-		foreach (JToken shelf in shelvesEnum)
+		List<JsonNode> shelvesEnum = obj.SelectTokens("..musicShelfRenderer").ToList();
+		JsonNode songsShelf = null;
+		foreach (JsonNode shelf in shelvesEnum)
 		{
 			string title = shelf.SelectTokens("..title..text").FirstOrDefault()?.ToString().ToLower() ?? "";
 			if (title.Contains("song") || title.Contains("track") || title.Contains("popular") || title.Contains("top"))
@@ -1381,9 +1377,9 @@ public class BackendService
 			songsBrowseId = songsShelf.SelectTokens("..bottomEndpoint.browseEndpoint.browseId").FirstOrDefault()?.ToString() ?? "";
 			if (string.IsNullOrEmpty(songsBrowseId))
 			{
-				foreach (JToken item in songsShelf.SelectTokens("..musicResponsiveListItemRenderer"))
+				foreach (JsonNode item in songsShelf.SelectTokens("..musicResponsiveListItemRenderer"))
 				{
-					JObject track = ParseTrack(new JObject { ["musicResponsiveListItemRenderer"] = item });
+					JsonObject track = ParseTrack(new JsonObject { ["musicResponsiveListItemRenderer"] = item?.DeepClone() });
 					if (track.Count != 0 && !string.IsNullOrEmpty(track["videoId"]?.ToString()))
 					{
 						tracks.Add(track);
@@ -1393,16 +1389,16 @@ public class BackendService
 		}
 		if (!string.IsNullOrEmpty(songsBrowseId))
 		{
-			foreach (JToken item2 in (await SendYoutubeiRequestAsync("browse", new JObject { ["browseId"] = songsBrowseId }, token).ConfigureAwait(continueOnCapturedContext: false)).SelectTokens("..musicResponsiveListItemRenderer"))
+			foreach (JsonNode item2 in (await SendYoutubeiRequestAsync("browse", new JsonObject { ["browseId"] = songsBrowseId }, token).ConfigureAwait(continueOnCapturedContext: false)).SelectTokens("..musicResponsiveListItemRenderer"))
 			{
-				JObject track2 = ParseTrack(new JObject { ["musicResponsiveListItemRenderer"] = item2 });
+				JsonObject track2 = ParseTrack(new JsonObject { ["musicResponsiveListItemRenderer"] = item2?.DeepClone() });
 				if (track2.Count != 0 && !string.IsNullOrEmpty(track2["videoId"]?.ToString()))
 				{
 					tracks.Add(track2);
 				}
 			}
 		}
-		return new JObject { ["tracks"] = tracks };
+		return new JsonObject { ["tracks"] = tracks };
 	}
 
 	private async Task<string?> GetSpotifyTokenAsync(CancellationToken token)
@@ -1418,9 +1414,9 @@ public class BackendService
 			HttpResponseMessage res = await _lrcClient.SendAsync(req, token);
 			if (res.IsSuccessStatusCode)
 			{
-				JObject jObject = JObject.Parse(await res.Content.ReadAsStringAsync());
-				_spotifyToken = jObject["accessToken"]?.ToString();
-				long expiresTimestampMs = jObject["accessTokenExpirationTimestampMs"]?.ToObject<long>() ?? 0;
+				JsonObject JsonObject = System.Text.Json.Nodes.JsonNode.Parse(await res.Content.ReadAsStringAsync())!.AsObject();
+				_spotifyToken = JsonObject["accessToken"]?.ToString();
+				long expiresTimestampMs = JsonObject["accessTokenExpirationTimestampMs"]?.Deserialize<long>() ?? 0;
 				if (expiresTimestampMs > 0)
 				{
 					_spotifyTokenExpiry = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc).AddMilliseconds(expiresTimestampMs).AddMinutes(-5.0);
@@ -1453,7 +1449,7 @@ public class BackendService
 			HttpResponseMessage res = await _lrcClient.SendAsync(req, token);
 			if (res.IsSuccessStatusCode)
 			{
-				if (!(JObject.Parse(await res.Content.ReadAsStringAsync()).SelectToken("tracks.items") is JArray { Count: not 0 } items))
+				if (!(JsonObject.Parse(await res.Content.ReadAsStringAsync()).SelectToken("tracks.items") is JsonArray { Count: not 0 } items))
 				{
 					return null;
 				}
@@ -1472,13 +1468,13 @@ public class BackendService
 		{
 		}
 		return null;
-		bool DurationClose(JToken? jToken)
+		bool DurationClose(JsonNode? JsonNode)
 		{
-			if (durationMs <= 0 || jToken == null)
+			if (durationMs <= 0 || JsonNode == null)
 			{
 				return true;
 			}
-			long itemDuration = ((long?)jToken).GetValueOrDefault();
+			long itemDuration = ((long?)JsonNode).GetValueOrDefault();
 			if (itemDuration <= 0)
 			{
 				return true;
@@ -1508,11 +1504,10 @@ public class BackendService
 			}
 			return Regex.Replace(sb.ToString(), "\\s+", " ").Trim();
 		}
-		int Score(JToken item)
+		int Score(JsonNode item)
 		{
 			string itemTitle = item["name"]?.ToString() ?? "";
-			string s = string.Join(" ", from x in item.SelectTokens("artists[*].name")
-				select x.ToString());
+			string s = string.Join(" ", from x in (item["artists"] as JsonArray ?? new JsonArray()) select x["name"]?.ToString());
 			string normTitle = Normalize(title);
 			string normArtist = Normalize(artist);
 			string normItemTitle = Normalize(itemTitle);
@@ -1566,7 +1561,7 @@ public class BackendService
 		}
 	}
 
-	private async Task<JObject?> GetCommunityLyricsAsync(string trackId, long durationMs, CancellationToken token)
+	private async Task<JsonObject?> GetCommunityLyricsAsync(string trackId, long durationMs, CancellationToken token)
 	{
 		try
 		{
@@ -1578,8 +1573,8 @@ public class BackendService
 				HttpResponseMessage res = await _lrcClient.SendAsync(req, token);
 				if (res.IsSuccessStatusCode)
 				{
-					JObject parsed = ParseCommunityLyrics(await res.Content.ReadAsStringAsync(), durationMs);
-					if (parsed != null && ((JArray)parsed["lines"]).Count > 0)
+					JsonObject parsed = ParseCommunityLyrics(await res.Content.ReadAsStringAsync(), durationMs);
+					if (parsed != null && ((JsonArray)parsed["lines"]).Count > 0)
 					{
 						parsed["source"] = "BeautifulLyrics";
 						return parsed;
@@ -1598,14 +1593,14 @@ public class BackendService
 				HttpRequestMessage req2 = new HttpRequestMessage(HttpMethod.Post, "https://api.spicylyrics.org/query");
 				req2.Headers.Add("SpicyLyrics-WebAuth", "Bearer " + spotifyToken2);
 				req2.Headers.Add("SpicyLyrics-Version", "1.0.0");
-				JObject body = new JObject
+				JsonObject body = new JsonObject
 				{
-					["queries"] = new JArray
+					["queries"] = new JsonArray
 					{
-						new JObject
+						new JsonObject
 						{
 							["operation"] = "lyrics",
-							["variables"] = new JObject
+							["variables"] = new JsonObject
 							{
 								["id"] = trackId,
 								["auth"] = "SpicyLyrics-WebAuth"
@@ -1613,17 +1608,17 @@ public class BackendService
 							["operationId"] = "0"
 						}
 					},
-					["client"] = new JObject { ["version"] = "1.0.0" }
+					["client"] = new JsonObject { ["version"] = "1.0.0" }
 				};
 				req2.Content = new StringContent(body.ToString(), Encoding.UTF8, "application/json");
 				HttpResponseMessage res2 = await _lrcClient.SendAsync(req2, token);
 				if (res2.IsSuccessStatusCode)
 				{
-					JToken lyricsData = JObject.Parse(await res2.Content.ReadAsStringAsync()).SelectToken("queries[0].result.data");
+					JsonNode lyricsData = JsonObject.Parse(await res2.Content.ReadAsStringAsync()).SelectToken("queries[0].result.data");
 					if (lyricsData != null)
 					{
-						JObject parsed2 = ParseCommunityLyrics(lyricsData.ToString(), durationMs);
-						if (parsed2 != null && ((JArray)parsed2["lines"]).Count > 0)
+						JsonObject parsed2 = ParseCommunityLyrics(lyricsData.ToString(), durationMs);
+						if (parsed2 != null && ((JsonArray)parsed2["lines"]).Count > 0)
 						{
 							parsed2["source"] = "SpicyLyrics";
 							return parsed2;
@@ -1638,18 +1633,18 @@ public class BackendService
 		return null;
 	}
 
-	private JObject? ParseCommunityLyrics(string jsonStr, long durationMs)
+	private JsonObject? ParseCommunityLyrics(string jsonStr, long durationMs)
 	{
-		JObject jObject = JObject.Parse(jsonStr);
-		string type = jObject["Type"]?.ToString();
-		if (!(jObject["Content"] is JArray contentArr))
+		JsonObject JsonObject = System.Text.Json.Nodes.JsonNode.Parse(jsonStr)!.AsObject();
+		string type = JsonObject["Type"]?.ToString();
+		if (!(JsonObject["Content"] is JsonArray contentArr))
 		{
 			return null;
 		}
-		JArray lines = new JArray();
+		JsonArray lines = new JsonArray();
 		if (type == "Line")
 		{
-			foreach (JToken item in contentArr)
+			foreach (JsonNode item in contentArr)
 			{
 				if (item["Type"]?.ToString() == "Vocal")
 				{
@@ -1661,7 +1656,7 @@ public class BackendService
 					}
 					if (!string.IsNullOrEmpty(text))
 					{
-						lines.Add(new JObject
+						lines.Add(new JsonObject
 						{
 							["timeMs"] = (long)(startTime * 1000.0),
 							["text"] = text
@@ -1672,13 +1667,13 @@ public class BackendService
 		}
 		else if (type == "Syllable")
 		{
-			foreach (JToken item2 in contentArr)
+			foreach (JsonNode item2 in contentArr)
 			{
 				if (!(item2["Type"]?.ToString() == "Vocal"))
 				{
 					continue;
 				}
-				JToken lead = item2["Lead"];
+				JsonNode lead = item2["Lead"];
 				if (lead == null)
 				{
 					continue;
@@ -1688,15 +1683,15 @@ public class BackendService
 				{
 					double.TryParse(lead["StartTime"].ToString(), out startTime2);
 				}
-				if (!(lead["Syllables"] is JArray syllablesToken))
+				if (!(lead["Syllables"] is JsonArray syllablesToken))
 				{
 					continue;
 				}
 				StringBuilder textBuilder = new StringBuilder();
-				JArray syllablesArr = new JArray();
-				foreach (JToken syl in syllablesToken)
+				JsonArray syllablesArr = new JsonArray();
+				foreach (JsonNode syl in syllablesToken)
 				{
-					bool isPart = syl["IsPartOfWord"]?.ToObject<bool>() ?? false;
+					bool isPart = syl["IsPartOfWord"]?.Deserialize<bool>() ?? false;
 					string txt = syl["Text"]?.ToString() ?? "";
 					double sylStartTime = 0.0;
 					if (syl["StartTime"] != null)
@@ -1719,14 +1714,14 @@ public class BackendService
 						txt = " " + txt;
 					}
 					textBuilder.Append(syl["Text"]?.ToString() ?? "");
-					syllablesArr.Add(new JObject
+					syllablesArr.Add(new JsonObject
 					{
 						["timeMs"] = (long)(sylStartTime * 1000.0),
 						["durationMs"] = sylDurMs,
 						["text"] = txt
 					});
 				}
-				lines.Add(new JObject
+				lines.Add(new JsonObject
 				{
 					["timeMs"] = (long)(startTime2 * 1000.0),
 					["text"] = textBuilder.ToString().Trim(),
@@ -1734,16 +1729,16 @@ public class BackendService
 				});
 			}
 		}
-		JArray sortedLines = new JArray(lines.OrderBy((JToken l) => (long)l["timeMs"]));
+		JsonArray sortedLines = new JsonArray(lines.OrderBy((JsonNode? l) => (long)(l?["timeMs"] ?? 0)).Select(x => x?.DeepClone()).ToArray());
 		bool isSynced = IsPlausibleSyncedLyrics(sortedLines, durationMs);
-		return new JObject
+		return new JsonObject
 		{
 			["lines"] = sortedLines,
 			["synced"] = isSynced
 		};
 	}
 
-	public async Task<JObject> GetLyricsAsync(string videoId, string title, string artist, long durationMs, CancellationToken token)
+	public async Task<JsonObject> GetLyricsAsync(string videoId, string title, string artist, long durationMs, CancellationToken token)
 	{
 		AppLogger.Log($"Backend: Fetching lyrics for '{title}' by '{artist}' (https://music.youtube.com/watch?v={videoId})", LogLevel.Info);
 		string cleanTitle = CleanSearchText(title, stripVersionTags: false);
@@ -1751,8 +1746,8 @@ public class BackendService
 		string cleanArtist = CleanSearchText(artist, stripVersionTags: false);
 		if (!string.IsNullOrEmpty(cleanTitle))
 		{
-			JObject appleLyrics = await TryFetchAppleMusicSyllablesAsync(cleanTitle, cleanArtist, durationMs, token);
-			if (appleLyrics != null && ((JArray)appleLyrics["lines"]).Count > 0)
+			JsonObject appleLyrics = await TryFetchAppleMusicSyllablesAsync(cleanTitle, cleanArtist, durationMs, token);
+			if (appleLyrics != null && ((JsonArray)appleLyrics["lines"]).Count > 0)
 			{
 				return appleLyrics;
 			}
@@ -1767,10 +1762,10 @@ public class BackendService
 				string lrcText = await res.Content.ReadAsStringAsync(token).ConfigureAwait(continueOnCapturedContext: false);
 				if (!string.IsNullOrWhiteSpace(lrcText) && lrcText.Contains("["))
 				{
-					JArray lines = ParseLrc(lrcText);
+					JsonArray lines = ParseLrc(lrcText);
 					if (lines.Count > 0 && IsPlausibleSyncedLyrics(lines, durationMs))
 					{
-						return new JObject
+						return new JsonObject
 						{
 							["lines"] = lines,
 							["synced"] = true,
@@ -1787,8 +1782,8 @@ public class BackendService
 		string spotifyTrackId = await GetSpotifyTrackIdAsync(cleanTitle, cleanArtist, durationMs, token);
 		if (!string.IsNullOrEmpty(spotifyTrackId))
 		{
-			JObject communityLyrics = await GetCommunityLyricsAsync(spotifyTrackId, durationMs, token);
-			if (communityLyrics != null && ((JArray)communityLyrics["lines"]).Count > 0)
+			JsonObject communityLyrics = await GetCommunityLyricsAsync(spotifyTrackId, durationMs, token);
+			if (communityLyrics != null && ((JsonArray)communityLyrics["lines"]).Count > 0)
 			{
 				return communityLyrics;
 			}
@@ -1796,14 +1791,14 @@ public class BackendService
 		try
 		{
 			_lrcClient.DefaultRequestHeaders.UserAgent.ParseAdd("Spectre/1.0");
-			JToken bestItem = null;
+			JsonNode bestItem = null;
 			if (durationMs > 0)
 			{
 				try
 				{
 					int durSec = (int)(durationMs / 1000);
 					string url = $"https://lrclib.net/api/get?track_name={Uri.EscapeDataString(cleanTitle)}&artist_name={Uri.EscapeDataString(cleanArtist)}&duration={durSec}";
-					JObject obj = JObject.Parse(await _lrcClient.GetStringAsync(url, token));
+					JsonObject obj = System.Text.Json.Nodes.JsonNode.Parse(await _lrcClient.GetStringAsync(url, token))!.AsObject();
 					if (!string.IsNullOrEmpty(obj["syncedLyrics"]?.ToString()) && IsMetadataMatch(cleanTitle, cleanArtist, obj["trackName"]?.ToString(), obj["artistName"]?.ToString()) && IsDurationMatch(durationMs, obj["duration"]))
 					{
 						bestItem = obj;
@@ -1819,20 +1814,20 @@ public class BackendService
 				string resStr = await _lrcClient.GetStringAsync(searchUrl, token);
 				if (resStr.TrimStart().StartsWith("["))
 				{
-					List<JToken> candidates = (from x in JArray.Parse(resStr)
+					List<JsonNode> candidates = (from x in System.Text.Json.Nodes.JsonNode.Parse(resStr)!.AsArray()
 						where !string.IsNullOrEmpty(x["syncedLyrics"]?.ToString())
 						where IsMetadataMatch(cleanTitle, cleanArtist, x["trackName"]?.ToString(), x["artistName"]?.ToString())
 						select x).ToList();
 					if (durationMs > 0)
 					{
-						List<JToken> durCandidates = candidates.Where((JToken x) => IsDurationMatch(durationMs, x["duration"])).ToList();
+						List<JsonNode> durCandidates = candidates.Where((JsonNode x) => IsDurationMatch(durationMs, x["duration"])).ToList();
 						if (durCandidates.Count > 0)
 						{
-							bestItem = durCandidates.OrderBy((JToken x) => GetDurationDiff(durationMs, x["duration"])).First();
+							bestItem = durCandidates.OrderBy((JsonNode x) => GetDurationDiff(durationMs, x["duration"])).First();
 						}
 						else if (candidates.Count > 0 && !HasVersionTag(cleanTitle))
 						{
-							bestItem = candidates.OrderBy((JToken x) => GetDurationDiff(durationMs, x["duration"])).First();
+							bestItem = candidates.OrderBy((JsonNode x) => GetDurationDiff(durationMs, x["duration"])).First();
 						}
 					}
 					else if (candidates.Count > 0)
@@ -1843,10 +1838,10 @@ public class BackendService
 			}
 			if (bestItem != null)
 			{
-				JArray lines2 = ParseLrc(bestItem["syncedLyrics"]?.ToString());
+				JsonArray lines2 = ParseLrc(bestItem["syncedLyrics"]?.ToString());
 				if (lines2.Count > 0 && IsPlausibleSyncedLyrics(lines2, durationMs))
 				{
-					return new JObject
+					return new JsonObject
 					{
 						["lines"] = lines2,
 						["synced"] = true,
@@ -1861,7 +1856,7 @@ public class BackendService
 				string resStr2 = await _lrcClient.GetStringAsync(searchUrl2, token);
 				if (resStr2.TrimStart().StartsWith("["))
 				{
-					JArray lines3 = ParseLrc((from x in JArray.Parse(resStr2)
+					JsonArray lines3 = ParseLrc((from x in System.Text.Json.Nodes.JsonNode.Parse(resStr2)!.AsArray()
 						where !string.IsNullOrEmpty(x["syncedLyrics"]?.ToString())
 						where IsMetadataMatch(baseTitle, cleanArtist, x["trackName"]?.ToString(), x["artistName"]?.ToString())
 						where IsDurationMatch(durationMs, x["duration"])
@@ -1869,7 +1864,7 @@ public class BackendService
 						select x).ToList().FirstOrDefault()?["syncedLyrics"]?.ToString());
 					if (lines3.Count > 0 && IsPlausibleSyncedLyrics(lines3, durationMs))
 					{
-						return new JObject
+						return new JsonObject
 						{
 							["lines"] = lines3,
 							["synced"] = true,
@@ -1884,18 +1879,18 @@ public class BackendService
 		}
 		try
 		{
-			JObject watchPayload = new JObject
+			JsonObject watchPayload = new JsonObject
 			{
 				["enablePersistentPlaylistPanel"] = true,
 				["isAudioOnly"] = true,
 				["videoId"] = videoId,
 				["playlistId"] = "RDAMVM" + videoId
 			};
-			JObject watchRes = await SendYoutubeiRequestAsync("next", watchPayload, token).ConfigureAwait(continueOnCapturedContext: false);
+			JsonObject watchRes = await SendYoutubeiRequestAsync("next", watchPayload, token).ConfigureAwait(continueOnCapturedContext: false);
 			string lyricsBrowseId = watchRes.SelectTokens("..musicLyricsTabContentRenderer..browseEndpoint.browseId").FirstOrDefault()?.ToString() ?? watchRes.SelectTokens("..tab..tabRenderer..browseEndpoint.browseId").FirstOrDefault()?.ToString();
 			if (string.IsNullOrEmpty(lyricsBrowseId))
 			{
-				foreach (JToken tab in watchRes.SelectTokens("..tabs[*].tabRenderer"))
+				foreach (JsonNode tab in watchRes.SelectTokens("..tabs[*].tabRenderer"))
 				{
 					if ((tab.SelectToken("title")?.ToString()?.ToLower() ?? "").Contains("lyric"))
 					{
@@ -1906,11 +1901,11 @@ public class BackendService
 			}
 			if (!string.IsNullOrEmpty(lyricsBrowseId))
 			{
-				string lyricText = (await SendYoutubeiRequestAsync("browse", new JObject { ["browseId"] = lyricsBrowseId }, token).ConfigureAwait(continueOnCapturedContext: false)).SelectTokens("..musicDescriptionShelfRenderer..description.runs[0].text").FirstOrDefault()?.ToString() ?? "";
+				string lyricText = (await SendYoutubeiRequestAsync("browse", new JsonObject { ["browseId"] = lyricsBrowseId }, token).ConfigureAwait(continueOnCapturedContext: false)).SelectTokens("..musicDescriptionShelfRenderer..description.runs[0].text").FirstOrDefault()?.ToString() ?? "";
 				if (!string.IsNullOrEmpty(lyricText))
 				{
-					JArray lines4 = SplitUnsyncedLyrics(lyricText);
-					return new JObject
+					JsonArray lines4 = SplitUnsyncedLyrics(lyricText);
+					return new JsonObject
 					{
 						["lines"] = lines4,
 						["synced"] = false,
@@ -1922,9 +1917,9 @@ public class BackendService
 		catch
 		{
 		}
-		return new JObject
+		return new JsonObject
 		{
-			["lines"] = new JArray(),
+			["lines"] = new JsonArray(),
 			["synced"] = false,
 			["source"] = ""
 		};
@@ -1943,17 +1938,17 @@ public class BackendService
 			}
 			return t.Trim();
 		}
-		static long GetDurationDiff(long targetDurMs, JToken? durToken)
+		static long GetDurationDiff(long targetDurMs, JsonNode? durToken)
 		{
 			return Math.Abs(GetDurMs(durToken) - targetDurMs);
 		}
-		static long GetDurMs(JToken? durToken)
+		static long GetDurMs(JsonNode? durToken)
 		{
 			if (durToken == null)
 			{
 				return 0L;
 			}
-			if (durToken.Type == JTokenType.Integer || durToken.Type == JTokenType.Float)
+			if (durToken.GetValueKind() == System.Text.Json.JsonValueKind.Number || durToken.GetValueKind() == System.Text.Json.JsonValueKind.Number)
 			{
 				return (long)((double)durToken * 1000.0);
 			}
@@ -1967,7 +1962,7 @@ public class BackendService
 		{
 			return Regex.IsMatch(s ?? "", "(?i)(album edit|radio edit|single edit|extended|remaster(?:ed)?|live|acoustic|clean|explicit|mix|version)");
 		}
-		static bool IsDurationMatch(long targetDurMs, JToken? durToken)
+		static bool IsDurationMatch(long targetDurMs, JsonNode? durToken)
 		{
 			if (targetDurMs <= 0)
 			{
@@ -2054,9 +2049,9 @@ public class BackendService
 		}
 	}
 
-	private JArray ParseLrc(string? text)
+	private JsonArray ParseLrc(string? text)
 	{
-		JArray lines = new JArray();
+		JsonArray lines = new JsonArray();
 		if (string.IsNullOrEmpty(text))
 		{
 			return lines;
@@ -2079,24 +2074,24 @@ public class BackendService
 				int minutes = int.Parse(item.Groups[1].Value);
 				double seconds = double.Parse(item.Groups[2].Value, CultureInfo.InvariantCulture);
 				long timeMs = (long)(((double)(minutes * 60) + seconds) * 1000.0);
-				lines.Add(new JObject
+				lines.Add(new JsonObject
 				{
 					["timeMs"] = timeMs,
 					["text"] = lyricText
 				});
 			}
 		}
-		return new JArray(lines.OrderBy((JToken l) => (long)l["timeMs"]));
+		return new JsonArray(lines.OrderBy((JsonNode? l) => (long)(l?["timeMs"] ?? 0)).Select(x => x?.DeepClone()).ToArray());
 	}
 
-	private bool IsPlausibleSyncedLyrics(JArray lines, long durationMs)
+	private bool IsPlausibleSyncedLyrics(JsonArray lines, long durationMs)
 	{
 		if (durationMs <= 0 || lines.Count < 2)
 		{
 			return true;
 		}
-		long valueOrDefault = ((long?)lines.First?["timeMs"]).GetValueOrDefault();
-		long last = ((long?)lines.Last?["timeMs"]).GetValueOrDefault();
+		long valueOrDefault = ((long?)lines.AsArray().FirstOrDefault()?["timeMs"]).GetValueOrDefault();
+		long last = ((long?)lines.AsArray().LastOrDefault()?["timeMs"]).GetValueOrDefault();
 		if (valueOrDefault > Math.Min(45000L, durationMs / 3))
 		{
 			return false;
@@ -2112,19 +2107,19 @@ public class BackendService
 		return true;
 	}
 
-	private JArray SplitUnsyncedLyrics(string text)
+	private JsonArray SplitUnsyncedLyrics(string text)
 	{
 		List<string> lyricLines = (from l in text.Split('\n')
 			where !string.IsNullOrWhiteSpace(l)
 			select l.Trim()).ToList();
 		if (lyricLines.Count == 0)
 		{
-			return new JArray();
+			return new JsonArray();
 		}
-		JArray arr = new JArray();
+		JsonArray arr = new JsonArray();
 		foreach (string line in lyricLines)
 		{
-			arr.Add(new JObject
+			arr.Add(new JsonObject
 			{
 				["timeMs"] = 0L,
 				["text"] = line
@@ -2133,19 +2128,19 @@ public class BackendService
 		return arr;
 	}
 
-	private async Task<JObject?> TryFetchAppleMusicSyllablesAsync(string title, string artist, long durationMs, CancellationToken token)
+	private async Task<JsonObject?> TryFetchAppleMusicSyllablesAsync(string title, string artist, long durationMs, CancellationToken token)
 	{
 		_ = 2;
 		try
 		{
 			string query = (title + " " + artist).Trim();
 			string searchUrl = "https://itunes.apple.com/search?term=" + Uri.EscapeDataString(query) + "&entity=song&limit=5&country=US";
-			if (!(JObject.Parse(await _client.GetStringAsync(searchUrl, token).ConfigureAwait(continueOnCapturedContext: false))["results"] is JArray { Count: not 0 } results))
+			if (!(JsonObject.Parse(await _client.GetStringAsync(searchUrl, token).ConfigureAwait(continueOnCapturedContext: false))["results"] is JsonArray { Count: not 0 } results))
 			{
 				return null;
 			}
-			JToken bestTrack = null;
-			foreach (JToken track in results)
+			JsonNode bestTrack = null;
+			foreach (JsonNode track in results)
 			{
 				string resTitle = track["trackName"]?.ToString() ?? "";
 				string s = track["artistName"]?.ToString() ?? "";
@@ -2189,31 +2184,31 @@ public class BackendService
 			{
 				return null;
 			}
-			JObject obj = JObject.Parse(await res.Content.ReadAsStringAsync(token).ConfigureAwait(continueOnCapturedContext: false));
+			JsonObject obj = System.Text.Json.Nodes.JsonNode.Parse(await res.Content.ReadAsStringAsync(token).ConfigureAwait(continueOnCapturedContext: false))!.AsObject();
 			if ((bool?)obj["error"] == true)
 			{
 				return null;
 			}
-			if (!(obj["content"] is JArray { Count: not 0 } content))
+			if (!(obj["content"] is JsonArray { Count: not 0 } content))
 			{
 				return null;
 			}
-			JArray finalLines = new JArray();
-			foreach (JToken section in content)
+			JsonArray finalLines = new JsonArray();
+			foreach (JsonNode section in content)
 			{
-				if (!(section["text"] is JArray { Count: not 0 } textArr))
+				if (!(section["text"] is JsonArray { Count: not 0 } textArr))
 				{
 					continue;
 				}
-				JObject lineObj = new JObject();
+				JsonObject lineObj = new JsonObject();
 				lineObj["timeMs"] = ((long?)section["timestamp"]).GetValueOrDefault();
-				JArray syllables = new JArray();
+				JsonArray syllables = new JsonArray();
 				StringBuilder sb = new StringBuilder();
-				foreach (JToken syl in textArr)
+				foreach (JsonNode syl in textArr)
 				{
 					string sText = ((string?)syl["text"]) ?? "";
 					bool isPart = (bool?)syl["part"] == true;
-					JObject sylObj = new JObject();
+					JsonObject sylObj = new JsonObject();
 					sylObj["timeMs"] = ((long?)syl["timestamp"]).GetValueOrDefault();
 					sylObj["durationMs"] = ((long?)syl["duration"]).GetValueOrDefault();
 					sylObj["text"] = sText + (isPart ? "" : " ");
@@ -2227,7 +2222,7 @@ public class BackendService
 			if (finalLines.Count > 0)
 			{
 				bool isSynced = IsPlausibleSyncedLyrics(finalLines, durationMs);
-				return new JObject
+				return new JsonObject
 				{
 					["lines"] = finalLines,
 					["synced"] = isSynced,
@@ -2262,13 +2257,13 @@ public class BackendService
 		}
 	}
 
-	public async Task<JObject> GetSongCreditsAsync(string videoId, CancellationToken token)
+	public async Task<JsonObject> GetSongCreditsAsync(string videoId, CancellationToken token)
 	{
 		string browseId = "MPTC" + videoId;
-		JObject payload = new JObject { ["browseId"] = browseId };
-		JObject obj = await SendYoutubeiRequestAsync("browse", payload, token).ConfigureAwait(continueOnCapturedContext: false);
-		JObject credits = new JObject { ["other_sections"] = new JArray() };
-		JArray obj2 = (obj.SelectToken("onResponseReceivedActions[0].openPopupAction.popup.dismissableDialogRenderer.sections") as JArray) ?? throw new Exception("Credits not available.");
+		JsonObject payload = new JsonObject { ["browseId"] = browseId };
+		JsonObject obj = await SendYoutubeiRequestAsync("browse", payload, token).ConfigureAwait(continueOnCapturedContext: false);
+		JsonObject credits = new JsonObject { ["other_sections"] = new JsonArray() };
+		JsonArray obj2 = (obj.SelectToken("onResponseReceivedActions[0].openPopupAction.popup.dismissableDialogRenderer.sections") as JsonArray) ?? throw new Exception("Credits not available.");
 		Dictionary<string, string> sectionMap = new Dictionary<string, string>
 		{
 			["Performed by"] = "performed_by",
@@ -2276,16 +2271,16 @@ public class BackendService
 			["Produced by"] = "produced_by",
 			["Music metadata provided by"] = "music_metadata_provided_by"
 		};
-		foreach (JToken item in obj2)
+		foreach (JsonNode item in obj2)
 		{
-			JToken content = item["dismissableDialogContentSectionRenderer"];
+			JsonNode content = item["dismissableDialogContentSectionRenderer"];
 			if (content == null)
 			{
 				continue;
 			}
 			string sectionTitle = content.SelectToken("title.runs[0].text")?.ToString() ?? "";
-			JArray subtitleRuns = content.SelectToken("subtitle.runs") as JArray;
-			JArray data = new JArray();
+			JsonArray subtitleRuns = content.SelectToken("subtitle.runs") as JsonArray;
+			JsonArray data = new JsonArray();
 			if (subtitleRuns != null)
 			{
 				for (int i = 0; i < subtitleRuns.Count; i += 2)
@@ -2293,7 +2288,7 @@ public class BackendService
 					data.Add(subtitleRuns[i]["text"]?.ToString() ?? "");
 				}
 			}
-			JObject sectionData = new JObject
+			JsonObject sectionData = new JsonObject
 			{
 				["localized_title"] = sectionTitle,
 				["data"] = data
@@ -2304,19 +2299,19 @@ public class BackendService
 			}
 			else
 			{
-				((JArray)credits["other_sections"]).Add(sectionData);
+				((JsonArray)credits["other_sections"]).Add(sectionData);
 			}
 		}
-		return new JObject { ["data"] = credits };
+		return new JsonObject { ["data"] = credits };
 	}
 
-	public async Task<JObject> GetAccountInfoAsync(CancellationToken token)
+	public async Task<JsonObject> GetAccountInfoAsync(CancellationToken token)
 	{
-		JObject obj = await SendYoutubeiRequestAsync("account/account_menu", new JObject(), token).ConfigureAwait(continueOnCapturedContext: false);
+		JsonObject obj = await SendYoutubeiRequestAsync("account/account_menu", new JsonObject(), token).ConfigureAwait(continueOnCapturedContext: false);
 		string name = obj.SelectTokens("..accountName.runs[0].text").FirstOrDefault()?.ToString() ?? "User";
 		string email = obj.SelectTokens("..accountEmail.runs[0].text").FirstOrDefault()?.ToString() ?? "";
 		string avatarUrl = obj.SelectTokens("..accountPhoto.thumbnails[0].url").FirstOrDefault()?.ToString() ?? "";
-		return new JObject { ["data"] = new JObject
+		return new JsonObject { ["data"] = new JsonObject
 		{
 			["accountName"] = name,
 			["accountEmail"] = email,
@@ -2324,25 +2319,25 @@ public class BackendService
 		} };
 	}
 
-	public async Task<JObject> RateSongAsync(string videoId, string rating, CancellationToken token)
+	public async Task<JsonObject> RateSongAsync(string videoId, string rating, CancellationToken token)
 	{
-		JObject payload = new JObject { ["target"] = new JObject { ["videoId"] = videoId } };
+		JsonObject payload = new JsonObject { ["target"] = new JsonObject { ["videoId"] = videoId } };
 		string ep = ((rating == "LIKE") ? "like/like" : "like/removelike");
 		await SendYoutubeiRequestAsync(ep, payload, token).ConfigureAwait(continueOnCapturedContext: false);
-		return new JObject { ["success"] = true };
+		return new JsonObject { ["success"] = true };
 	}
 
-	public async Task<JObject> RatePlaylistAsync(string playlistId, string rating, CancellationToken token)
+	public async Task<JsonObject> RatePlaylistAsync(string playlistId, string rating, CancellationToken token)
 	{
-		JObject payload = new JObject { ["target"] = new JObject { ["playlistId"] = playlistId } };
+		JsonObject payload = new JsonObject { ["target"] = new JsonObject { ["playlistId"] = playlistId } };
 		string ep = ((rating == "LIKE") ? "like/like" : "like/removelike");
 		await SendYoutubeiRequestAsync(ep, payload, token).ConfigureAwait(continueOnCapturedContext: false);
-		return new JObject { ["success"] = true };
+		return new JsonObject { ["success"] = true };
 	}
 
-	public async Task<JObject> CreatePlaylistAsync(string title, string privacy, CancellationToken token)
+	public async Task<JsonObject> CreatePlaylistAsync(string title, string privacy, CancellationToken token)
 	{
-		JObject payload = new JObject
+		JsonObject payload = new JsonObject
 		{
 			["title"] = title,
 			["description"] = "",
@@ -2351,29 +2346,29 @@ public class BackendService
 		return await SendYoutubeiRequestAsync("playlist/create", payload, token).ConfigureAwait(continueOnCapturedContext: false);
 	}
 
-	public async Task<JObject> DeletePlaylistAsync(string playlistId, CancellationToken token)
+	public async Task<JsonObject> DeletePlaylistAsync(string playlistId, CancellationToken token)
 	{
 		if (playlistId.StartsWith("VL"))
 		{
 			playlistId = playlistId.Substring(2);
 		}
-		JObject payload = new JObject { ["playlistId"] = playlistId };
+		JsonObject payload = new JsonObject { ["playlistId"] = playlistId };
 		await SendYoutubeiRequestAsync("playlist/delete", payload, token).ConfigureAwait(continueOnCapturedContext: false);
-		return new JObject { ["success"] = true };
+		return new JsonObject { ["success"] = true };
 	}
 
-	public async Task<JObject> RenamePlaylistAsync(string playlistId, string title, CancellationToken token)
+	public async Task<JsonObject> RenamePlaylistAsync(string playlistId, string title, CancellationToken token)
 	{
 		if (playlistId.StartsWith("VL"))
 		{
 			playlistId = playlistId.Substring(2);
 		}
-		JObject payload = new JObject
+		JsonObject payload = new JsonObject
 		{
 			["playlistId"] = playlistId,
-			["actions"] = new JArray
+			["actions"] = new JsonArray
 			{
-				new JObject
+				new JsonObject
 				{
 					["action"] = "ACTION_SET_PLAYLIST_NAME",
 					["playlistName"] = title
@@ -2381,21 +2376,21 @@ public class BackendService
 			}
 		};
 		await SendYoutubeiRequestAsync("browse/edit_playlist", payload, token).ConfigureAwait(continueOnCapturedContext: false);
-		return new JObject { ["success"] = true };
+		return new JsonObject { ["success"] = true };
 	}
 
-	public async Task<JObject> AddPlaylistItemAsync(string playlistId, string videoId, CancellationToken token)
+	public async Task<JsonObject> AddPlaylistItemAsync(string playlistId, string videoId, CancellationToken token)
 	{
 		if (playlistId.StartsWith("VL"))
 		{
 			playlistId = playlistId.Substring(2);
 		}
-		JObject payload = new JObject
+		JsonObject payload = new JsonObject
 		{
 			["playlistId"] = playlistId,
-			["actions"] = new JArray
+			["actions"] = new JsonArray
 			{
-				new JObject
+				new JsonObject
 				{
 					["action"] = "ACTION_ADD_VIDEO",
 					["addedVideoId"] = videoId
@@ -2407,7 +2402,7 @@ public class BackendService
 			try
 			{
 				await SendYoutubeiRequestAsync("browse/edit_playlist", payload, token).ConfigureAwait(continueOnCapturedContext: false);
-				return new JObject { ["success"] = true };
+				return new JsonObject { ["success"] = true };
 			}
 			catch (Exception)
 			{
@@ -2418,25 +2413,25 @@ public class BackendService
 				await Task.Delay(1500, token);
 			}
 		}
-		return new JObject { ["success"] = true };
+		return new JsonObject { ["success"] = true };
 	}
 
-	public async Task<JObject> RemovePlaylistItemAsync(string playlistId, string videoId, CancellationToken token, string setVideoId = "")
+	public async Task<JsonObject> RemovePlaylistItemAsync(string playlistId, string videoId, CancellationToken token, string setVideoId = "")
 	{
 		if (string.IsNullOrEmpty(setVideoId))
 		{
-			return new JObject { ["success"] = false };
+			return new JsonObject { ["success"] = false };
 		}
 		if (playlistId.StartsWith("VL"))
 		{
 			playlistId = playlistId.Substring(2);
 		}
-		JObject payload = new JObject
+		JsonObject payload = new JsonObject
 		{
 			["playlistId"] = playlistId,
-			["actions"] = new JArray
+			["actions"] = new JsonArray
 			{
-				new JObject
+				new JsonObject
 				{
 					["action"] = "ACTION_REMOVE_VIDEO_BY_SET_VIDEO_ID",
 					["setVideoId"] = setVideoId
@@ -2444,7 +2439,7 @@ public class BackendService
 			}
 		};
 		await SendYoutubeiRequestAsync("browse/edit_playlist", payload, token).ConfigureAwait(continueOnCapturedContext: false);
-		return new JObject { ["success"] = true };
+		return new JsonObject { ["success"] = true };
 	}
 
 	private async Task<int> GetSignatureTimestampAsync(CancellationToken token)
@@ -2496,30 +2491,30 @@ public class BackendService
 		return (int)(DateTime.UtcNow - new DateTime(1970, 1, 1)).TotalDays - 1;
 	}
 
-	public async Task<JObject> AddHistoryItemAsync(string videoId, CancellationToken token)
+	public async Task<JsonObject> AddHistoryItemAsync(string videoId, CancellationToken token)
 	{
 		if (string.IsNullOrEmpty(videoId))
 		{
-			return new JObject { ["success"] = false };
+			return new JsonObject { ["success"] = false };
 		}
 		try
 		{
 			await LoadAuthAsync();
 			int sts = await GetSignatureTimestampAsync(token);
-			JObject payload = new JObject
+			JsonObject payload = new JsonObject
 			{
-				["context"] = new JObject { ["client"] = new JObject
+				["context"] = new JsonObject { ["client"] = new JsonObject
 				{
 					["clientName"] = "WEB_REMIX",
 					["clientVersion"] = "1.20230524.01.00"
 				} },
 				["videoId"] = videoId,
-				["playbackContext"] = new JObject { ["contentPlaybackContext"] = new JObject { ["signatureTimestamp"] = sts } }
+				["playbackContext"] = new JsonObject { ["contentPlaybackContext"] = new JsonObject { ["signatureTimestamp"] = sts } }
 			};
 			string trackingUrl = (await SendYoutubeiRequestAsync("player", payload, token).ConfigureAwait(continueOnCapturedContext: false)).SelectToken("..playbackTracking.videostatsPlaybackUrl.baseUrl")?.ToString() ?? "";
 			if (string.IsNullOrEmpty(trackingUrl))
 			{
-				return new JObject { ["success"] = false };
+				return new JsonObject { ["success"] = false };
 			}
 			string CPNA = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_";
 			Random random = new Random();
@@ -2538,11 +2533,11 @@ public class BackendService
 				req.Headers.TryAddWithoutValidation("X-Origin", "https://music.youtube.com");
 			}
 			await _client.SendAsync(req, token).ConfigureAwait(continueOnCapturedContext: false);
-			return new JObject { ["success"] = true };
+			return new JsonObject { ["success"] = true };
 		}
 		catch
 		{
-			return new JObject { ["success"] = false };
+			return new JsonObject { ["success"] = false };
 		}
 	}
 
@@ -2583,7 +2578,7 @@ public class BackendService
 			{
 				return _visitorData;
 			}
-			JObject payload = new JObject { ["context"] = new JObject { ["client"] = new JObject
+			JsonObject payload = new JsonObject { ["context"] = new JsonObject { ["client"] = new JsonObject
 			{
 				["clientName"] = "ANDROID_VR",
 				["clientVersion"] = "1.61.48"
@@ -2606,9 +2601,9 @@ public class BackendService
 		_ = 2;
 		try
 		{
-			JObject clientObj = clientName switch
+			JsonObject clientObj = clientName switch
 			{
-				"ANDROID" => new JObject
+				"ANDROID" => new JsonObject
 				{
 					["clientName"] = "ANDROID",
 					["clientVersion"] = "19.30.36",
@@ -2616,7 +2611,7 @@ public class BackendService
 					["osName"] = "Android",
 					["osVersion"] = "14"
 				}, 
-				"ANDROID_MUSIC" => new JObject
+				"ANDROID_MUSIC" => new JsonObject
 				{
 					["clientName"] = "ANDROID_MUSIC",
 					["clientVersion"] = "7.09.51",
@@ -2624,17 +2619,17 @@ public class BackendService
 					["osName"] = "Android",
 					["osVersion"] = "14"
 				}, 
-				"TVHTML5_SIMPLY_EMBEDDED_PLAYER" => new JObject
+				"TVHTML5_SIMPLY_EMBEDDED_PLAYER" => new JsonObject
 				{
 					["clientName"] = "TVHTML5_SIMPLY_EMBEDDED_PLAYER",
 					["clientVersion"] = "2.0"
 				}, 
-				"WEB_REMIX" => new JObject
+				"WEB_REMIX" => new JsonObject
 				{
 					["clientName"] = "WEB_REMIX",
 					["clientVersion"] = "1.20230524.01.00"
 				}, 
-				"ANDROID_VR" => new JObject
+				"ANDROID_VR" => new JsonObject
 				{
 					["clientName"] = "ANDROID_VR",
 					["clientVersion"] = "1.61.48",
@@ -2644,7 +2639,7 @@ public class BackendService
 					["hl"] = "en",
 					["gl"] = "US"
 				}, 
-				"ANDROID_VR_1_43" => new JObject
+				"ANDROID_VR_1_43" => new JsonObject
 				{
 					["clientName"] = "ANDROID_VR",
 					["clientVersion"] = "1.43.32",
@@ -2654,7 +2649,7 @@ public class BackendService
 					["hl"] = "en",
 					["gl"] = "US"
 				}, 
-				_ => new JObject
+				_ => new JsonObject
 				{
 					["clientName"] = "IOS",
 					["clientVersion"] = "19.29.1",
@@ -2666,18 +2661,18 @@ public class BackendService
 				}, 
 			};
 			int sts = await GetSignatureTimestampAsync(token);
-			JObject payload = new JObject
+			JsonObject payload = new JsonObject
 			{
-				["context"] = new JObject { ["client"] = clientObj },
+				["context"] = new JsonObject { ["client"] = clientObj },
 				["videoId"] = videoId,
-				["playbackContext"] = new JObject { ["contentPlaybackContext"] = new JObject { ["signatureTimestamp"] = sts } }
+				["playbackContext"] = new JsonObject { ["contentPlaybackContext"] = new JsonObject { ["signatureTimestamp"] = sts } }
 			};
 			string visitorData = await GetVisitorDataAsync(token);
 			if (!string.IsNullOrEmpty(visitorData))
 			{
 				clientObj["visitorData"] = visitorData;
 			}
-			JObject res = await SendYoutubeiRequestAsync("player", payload, token).ConfigureAwait(continueOnCapturedContext: false);
+			JsonObject res = await SendYoutubeiRequestAsync("player", payload, token).ConfigureAwait(continueOnCapturedContext: false);
 			var bestFormat = (from f in res.SelectTokens("..streamingData.adaptiveFormats[*]")
 				select new
 				{
@@ -2720,17 +2715,17 @@ public class BackendService
 		_ = 2;
 		try
 		{
-			JObject clientObj = new JObject
+			JsonObject clientObj = new JsonObject
 			{
 				["clientName"] = "WEB_REMIX",
 				["clientVersion"] = "1.20230524.01.00"
 			};
 			int sts = await GetSignatureTimestampAsync(CancellationToken.None);
-			JObject payload = new JObject
+			JsonObject payload = new JsonObject
 			{
-				["context"] = new JObject { ["client"] = clientObj },
+				["context"] = new JsonObject { ["client"] = clientObj },
 				["videoId"] = videoId,
-				["playbackContext"] = new JObject { ["contentPlaybackContext"] = new JObject { ["signatureTimestamp"] = sts } }
+				["playbackContext"] = new JsonObject { ["contentPlaybackContext"] = new JsonObject { ["signatureTimestamp"] = sts } }
 			};
 			string visitorData = await GetVisitorDataAsync(CancellationToken.None);
 			if (!string.IsNullOrEmpty(visitorData))
@@ -2803,7 +2798,7 @@ public class BackendService
 		throw new Exception("No audio stream found.");
 	}
 
-	public async Task<JObject> DownloadSongAsync(string videoId, string outputDir, string format, CancellationToken token, string title = "", string artist = "", string thumbUrl = "")
+	public async Task<JsonObject> DownloadSongAsync(string videoId, string outputDir, string format, CancellationToken token, string title = "", string artist = "", string thumbUrl = "")
 	{
 		if (string.IsNullOrWhiteSpace(videoId))
 		{
@@ -2882,7 +2877,7 @@ public class BackendService
 			await _youtubeClient.Videos.Streams.DownloadAsync(streamInfo, outputPath, null, token).ConfigureAwait(continueOnCapturedContext: false);
 			TryWriteAudioTags(outputPath, resolvedTitle, resolvedArtist, videoId, artwork);
 		}
-		return new JObject
+		return new JsonObject
 		{
 			["success"] = true,
 			["path"] = outputPath,
@@ -3490,4 +3485,16 @@ public class BackendService
 		_client?.Dispose();
 	}
 }
+
+
+
+
+
+
+
+
+
+
+
+
 

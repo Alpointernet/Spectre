@@ -5,7 +5,7 @@ using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
-using Newtonsoft.Json.Linq;
+using System.Text.Json.Nodes;
 
 namespace Spectre.Services;
 
@@ -48,7 +48,7 @@ public static class LastFmManager
 			}, secret);
 			string url = $"{"http://ws.audioscrobbler.com/2.0/"}?method=auth.gettoken&api_key={apiKey}&api_sig={sig}&format=json";
 			using HttpClient client = new HttpClient();
-			return JObject.Parse(await client.GetStringAsync(url))["token"]?.ToString() ?? "";
+			return JsonNode.Parse(await client.GetStringAsync(url))["token"]?.ToString() ?? "";
 		}
 		catch (Exception ex)
 		{
@@ -69,7 +69,7 @@ public static class LastFmManager
 			}, secret);
 			string url = $"{"http://ws.audioscrobbler.com/2.0/"}?method=auth.getsession&api_key={apiKey}&token={token}&api_sig={sig}&format=json";
 			using HttpClient client = new HttpClient();
-			JObject json = JObject.Parse(await client.GetStringAsync(url));
+			JsonNode json = JsonNode.Parse(await client.GetStringAsync(url));
 			if (json["session"] != null)
 			{
 				string sk = json["session"]["key"]?.ToString() ?? "";
@@ -171,7 +171,7 @@ public static class LastFmManager
 		}
 	}
 
-	public static async Task<JObject?> GetUserInfoAsync()
+	public static async Task<JsonNode?> GetUserInfoAsync()
 	{
 		if (!IsEnabled || string.IsNullOrEmpty(Username))
 		{
@@ -181,7 +181,7 @@ public static class LastFmManager
 		{
 			string url = $"{"http://ws.audioscrobbler.com/2.0/"}?method=user.getinfo&user={Username}&api_key={ApiKey}&format=json";
 			using HttpClient client = new HttpClient();
-			return JObject.Parse(await client.GetStringAsync(url));
+			return JsonNode.Parse(await client.GetStringAsync(url));
 		}
 		catch (Exception ex)
 		{
@@ -190,7 +190,7 @@ public static class LastFmManager
 		}
 	}
 
-	public static async Task<JObject?> GetTopArtistsAsync(int limit = 10, string period = "overall")
+	public static async Task<JsonNode?> GetTopArtistsAsync(int limit = 10, string period = "overall")
 	{
 		if (!IsEnabled || string.IsNullOrEmpty(Username))
 		{
@@ -200,7 +200,7 @@ public static class LastFmManager
 		{
 			string url = $"{"http://ws.audioscrobbler.com/2.0/"}?method=user.gettopartists&user={Username}&api_key={ApiKey}&limit={limit}&period={period}&format=json";
 			using HttpClient client = new HttpClient();
-			return JObject.Parse(await client.GetStringAsync(url));
+			return JsonNode.Parse(await client.GetStringAsync(url));
 		}
 		catch (Exception ex)
 		{
@@ -209,7 +209,7 @@ public static class LastFmManager
 		}
 	}
 
-	public static async Task<JObject?> GetTopTracksAsync(int limit = 10, string period = "overall")
+	public static async Task<JsonNode?> GetTopTracksAsync(int limit = 10, string period = "overall")
 	{
 		if (!IsEnabled || string.IsNullOrEmpty(Username))
 		{
@@ -219,7 +219,7 @@ public static class LastFmManager
 		{
 			string url = $"{"http://ws.audioscrobbler.com/2.0/"}?method=user.gettoptracks&user={Username}&api_key={ApiKey}&limit={limit}&period={period}&format=json";
 			using HttpClient client = new HttpClient();
-			return JObject.Parse(await client.GetStringAsync(url));
+			return JsonNode.Parse(await client.GetStringAsync(url));
 		}
 		catch (Exception ex)
 		{
@@ -228,7 +228,7 @@ public static class LastFmManager
 		}
 	}
 
-	public static async Task<JObject?> GetRecentTracksAsync(int limit = 10)
+	public static async Task<JsonNode?> GetRecentTracksAsync(int limit = 10)
 	{
 		if (!IsEnabled || string.IsNullOrEmpty(Username))
 		{
@@ -238,7 +238,7 @@ public static class LastFmManager
 		{
 			string url = $"{"http://ws.audioscrobbler.com/2.0/"}?method=user.getrecenttracks&user={Username}&api_key={ApiKey}&limit={limit}&format=json";
 			using HttpClient client = new HttpClient();
-			return JObject.Parse(await client.GetStringAsync(url));
+			return JsonNode.Parse(await client.GetStringAsync(url));
 		}
 		catch (Exception ex)
 		{
@@ -247,7 +247,7 @@ public static class LastFmManager
 		}
 	}
 
-	public static async Task<JObject?> GetTopAlbumsAsync(int limit = 10, string period = "overall")
+	public static async Task<JsonNode?> GetTopAlbumsAsync(int limit = 10, string period = "overall")
 	{
 		if (!IsEnabled || string.IsNullOrEmpty(Username))
 		{
@@ -257,7 +257,7 @@ public static class LastFmManager
 		{
 			string url = $"{"http://ws.audioscrobbler.com/2.0/"}?method=user.gettopalbums&user={Username}&api_key={ApiKey}&limit={limit}&period={period}&format=json";
 			using HttpClient client = new HttpClient();
-			return JObject.Parse(await client.GetStringAsync(url));
+			return JsonNode.Parse(await client.GetStringAsync(url));
 		}
 		catch (Exception ex)
 		{

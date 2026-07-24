@@ -31,11 +31,11 @@ using System.Windows.Shapes;
 using System.Windows.Shell;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.Messaging;
-using Microsoft.Extensions.DependencyInjection;
+
 using Microsoft.Win32;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
-using SharpVectors.Converters;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+
 using Spectre.Services;
 using Spectre.ViewModels;
 using Spectre.Views;
@@ -48,7 +48,7 @@ using YoutubeExplode;
 namespace Spectre; public partial class MainWindow {
 	private async Task ExpandQueueWithAutoplayAsync()
 	{
-		JArray targetQueue = _currentQueue;
+		System.Text.Json.Nodes.JsonArray targetQueue = _currentQueue;
 		if (targetQueue == null || targetQueue.Count == 0)
 		{
 			return;
@@ -65,18 +65,18 @@ namespace Spectre; public partial class MainWindow {
 			{
 				return;
 			}
-			JObject nextData = await BackendService.Instance.FetchAutoplayNextAsync(lastVideoId, CancellationToken.None);
-			if (targetQueue != _currentQueue || !(nextData["data"]?["tracks"] is JArray items))
+			System.Text.Json.Nodes.JsonObject nextData = await BackendService.Instance.FetchAutoplayNextAsync(lastVideoId, CancellationToken.None);
+			if (targetQueue != _currentQueue || !(nextData["data"]?["tracks"] is System.Text.Json.Nodes.JsonArray items))
 			{
 				return;
 			}
 			HashSet<string> existingIds = new HashSet<string>();
-			foreach (JToken qItem in _currentQueue)
+			foreach (System.Text.Json.Nodes.JsonNode qItem in _currentQueue)
 			{
 				existingIds.Add(((string?)qItem["videoId"]) ?? "");
 			}
-			List<JToken> newItems = new List<JToken>();
-			foreach (JToken item in items)
+			List<System.Text.Json.Nodes.JsonNode> newItems = new List<System.Text.Json.Nodes.JsonNode>();
+			foreach (System.Text.Json.Nodes.JsonNode item in items)
 			{
 				string vid = ((string?)item["videoId"]) ?? "";
 				if (!string.IsNullOrEmpty(vid) && !existingIds.Contains(vid))
@@ -84,9 +84,9 @@ namespace Spectre; public partial class MainWindow {
 					newItems.Add(item);
 				}
 			}
-			foreach (JToken item2 in newItems)
+			foreach (System.Text.Json.Nodes.JsonNode item2 in newItems)
 			{
-				_currentQueue.Add(item2);
+				_currentQueue.Add(item2?.DeepClone());
 			}
 		}
 		finally
@@ -113,7 +113,7 @@ namespace Spectre; public partial class MainWindow {
 			if (nextQueueIndex == -1)
 			{
 				_isTrackLoading = true;
-				PlayerBarViewModel vmTime = App.Current.Services.GetService<PlayerBarViewModel>();
+				PlayerBarViewModel vmTime = App.Current.PlayerBarViewModel;
 				if (vmTime != null)
 				{
 					vmTime.CurrentTimeText = "Loading...";
@@ -131,40 +131,40 @@ namespace Spectre; public partial class MainWindow {
 			if (nextQueueIndex != -1)
 			{
 				_currentQueueIndex = nextQueueIndex;
-				JToken nextItem = _currentQueue[_currentQueueIndex];
+				System.Text.Json.Nodes.JsonNode nextItem = _currentQueue[_currentQueueIndex];
 				string nId = ((string?)nextItem["videoId"]) ?? "";
 				string nTitle = ((string?)nextItem["title"]) ?? "Next Song";
 				string nArtist = "";
-				if (nextItem["artist"] != null && nextItem["artist"].Type == JTokenType.String)
+				if (nextItem["artist"] != null && nextItem["artist"] is System.Text.Json.Nodes.JsonValue)
 				{
 					nArtist = ((string?)nextItem["artist"]) ?? "";
 				}
-				else if (nextItem["artists"] is JArray artistsToken)
+				else if (nextItem["artists"] is System.Text.Json.Nodes.JsonArray artistsToken)
 				{
 					List<string> names = new List<string>();
-					foreach (JToken a in artistsToken)
+					foreach (System.Text.Json.Nodes.JsonNode a in artistsToken)
 					{
 						names.Add(((string?)a["name"]) ?? "");
 					}
 					nArtist = string.Join(", ", names);
 				}
 				string nThumb = "";
-				if (nextItem["thumbUrl"] != null && nextItem["thumbUrl"].Type == JTokenType.String)
+				if (nextItem["thumbUrl"] != null && nextItem["thumbUrl"] is System.Text.Json.Nodes.JsonValue)
 				{
 					nThumb = ((string?)nextItem["thumbUrl"]) ?? "";
 				}
 				else
 				{
-					JArray thumbs = nextItem["thumbnails"] as JArray;
+					System.Text.Json.Nodes.JsonArray thumbs = nextItem["thumbnails"] as System.Text.Json.Nodes.JsonArray;
 					if (thumbs == null || thumbs.Count == 0)
 					{
-						thumbs = nextItem["thumbnail"] as JArray;
+						thumbs = nextItem["thumbnail"] as System.Text.Json.Nodes.JsonArray;
 						if (thumbs == null || thumbs.Count == 0)
 						{
-							JToken thumbObj = nextItem["thumbnail"];
-							if (thumbObj != null && thumbObj.Type == JTokenType.Object)
+							System.Text.Json.Nodes.JsonNode thumbObj = nextItem["thumbnail"];
+							if (thumbObj != null && thumbObj is System.Text.Json.Nodes.JsonObject)
 							{
-								thumbs = thumbObj["thumbnails"] as JArray;
+								thumbs = thumbObj["thumbnails"] as System.Text.Json.Nodes.JsonArray;
 							}
 						}
 					}
@@ -218,16 +218,23 @@ namespace Spectre; public partial class MainWindow {
 	private void UnshuffleRemainingQueue()
 	{
 		_queueService.UnshuffleRemainingQueue();
+		_currentQueue = _queueService.CurrentQueue;
+		_currentQueueIndex = _queueService.CurrentQueueIndex;
 	}
 
-	private void InitQueueAndShuffle(JArray newQueue, int newIndex)
+	private void InitQueueAndShuffle(System.Text.Json.Nodes.JsonArray newQueue, int newIndex)
 	{
 		_queueService.InitQueueAndShuffle(newQueue, newIndex);
+		_currentQueue = _queueService.CurrentQueue;
+		_currentQueueIndex = _queueService.CurrentQueueIndex;
+		_originalQueueSize = _queueService.OriginalQueueSize;
 	}
 
 	private void ShuffleRemainingQueue()
 	{
 		_queueService.ShuffleRemainingQueue();
+		_currentQueue = _queueService.CurrentQueue;
+		_currentQueueIndex = _queueService.CurrentQueueIndex;
 	}
 
 	private int GetNextQueueIndex()
@@ -253,7 +260,15 @@ namespace Spectre; public partial class MainWindow {
 			MainPlayerBarControl.QueueIconOffRef.Visibility = Visibility.Visible;
 			MainPlayerBarControl.QueueIconOnRef.Visibility = Visibility.Collapsed;
 		}
+		MainScrollViewer.CacheMode = new System.Windows.Media.BitmapCache { EnableClearType = false, RenderAtScale = 1.0 };
 		MainScrollViewer.Width = MainScrollViewer.ActualWidth;
+		MainScrollViewer.HorizontalAlignment = System.Windows.HorizontalAlignment.Left;
+		MainTopbarControl.Width = MainTopbarControl.ActualWidth;
+		MainTopbarControl.HorizontalAlignment = System.Windows.HorizontalAlignment.Left;
+		MainSearchOverlay.Width = MainSearchOverlay.ActualWidth;
+		MainSearchOverlay.HorizontalAlignment = System.Windows.HorizontalAlignment.Left;
+		MainQueueControl.Width = 350;
+		MainQueueControl.HorizontalAlignment = System.Windows.HorizontalAlignment.Left;
 		DoubleAnimation fadeOutMain = new DoubleAnimation(0.0, TimeSpan.FromMilliseconds(120.0));
 		MainScrollViewer.BeginAnimation(UIElement.OpacityProperty, fadeOutMain);
 		_queueSidebarTargetWidth = (_isQueueOpen ? 350 : 0);
@@ -261,8 +276,8 @@ namespace Spectre; public partial class MainWindow {
 		_queueAnimationStartTime = DateTime.Now;
 		if (_isQueueOpen)
 		{
-			MainQueueControl.QueueSidebarBorderRef.Visibility = Visibility.Visible;
 			RenderQueueSidebar();
+			MainQueueControl.QueueSidebarBorderRef.Visibility = Visibility.Visible;
 		}
 		else
 		{
@@ -288,8 +303,26 @@ namespace Spectre; public partial class MainWindow {
 			{
 				MainQueueControl.QueueSidebarBorderRef.Visibility = Visibility.Collapsed;
 			}
+			else
+			{
+				RenderQueueSidebar();
+			}
+			MainQueueControl.Width = double.NaN;
+			MainQueueControl.HorizontalAlignment = System.Windows.HorizontalAlignment.Stretch;
+			MainTopbarControl.Width = double.NaN;
+			MainTopbarControl.HorizontalAlignment = System.Windows.HorizontalAlignment.Stretch;
+			MainSearchOverlay.Width = double.NaN;
+			MainSearchOverlay.HorizontalAlignment = System.Windows.HorizontalAlignment.Stretch;
 			MainScrollViewer.Width = double.NaN;
+			MainScrollViewer.HorizontalAlignment = System.Windows.HorizontalAlignment.Stretch;
 			DoubleAnimation fadeInMain = new DoubleAnimation(1.0, TimeSpan.FromMilliseconds(200.0));
+			fadeInMain.Completed += delegate
+			{
+				if (double.IsNaN(MainScrollViewer.Width))
+				{
+					MainScrollViewer.CacheMode = null;
+				}
+			};
 			MainScrollViewer.BeginAnimation(UIElement.OpacityProperty, fadeInMain);
 		}
 		else
@@ -421,34 +454,31 @@ namespace Spectre; public partial class MainWindow {
 		}
 	}
 
-	private async void RenderQueueSidebar()
+	private void RenderQueueSidebar()
 	{
 		int generation = ++_queueRenderGeneration;
-		QueueViewModel queueVm = App.Current.Services.GetService<QueueViewModel>();
+		QueueViewModel queueVm = App.Current.QueueViewModel;
 		if (queueVm == null)
 		{
 			return;
 		}
-		JArray queue = _currentQueue;
+		System.Text.Json.Nodes.JsonArray queue = _currentQueue;
 		int currentQueueIndex = _currentQueueIndex;
-		await Dispatcher.Yield(DispatcherPriority.Background);
-		if (generation != _queueRenderGeneration)
-		{
-			return;
-		}
-		queueVm.Items.Clear();
 		if (queue == null || queue.Count == 0)
 		{
+			queueVm.Items.Clear();
 			return;
 		}
 		int startIdx = Math.Max(0, currentQueueIndex);
-		for (int i = startIdx; i < queue.Count; i++)
+		int endIdx = Math.Min(queue.Count, startIdx + 50);
+		List<QueueItemViewModel> newItems = new List<QueueItemViewModel>();
+		for (int i = startIdx; i < endIdx; i++)
 		{
 			if (generation != _queueRenderGeneration)
 			{
-				break;
+				return;
 			}
-			JToken item = queue[i];
+			System.Text.Json.Nodes.JsonNode item = queue[i];
 			string videoId = ((string?)item["videoId"]) ?? "";
 			string title = ((string?)item["title"]) ?? "Unknown";
 			string artist = "Unknown Artist";
@@ -456,35 +486,35 @@ namespace Spectre; public partial class MainWindow {
 			{
 				artist = ((string?)item["artist"]) ?? "Unknown Artist";
 			}
-			else if (item["artists"] != null && item["artists"] is JArray artistsToken)
+			else if (item["artists"] != null && item["artists"] is System.Text.Json.Nodes.JsonArray artistsToken)
 			{
 				List<string> names = new List<string>();
-				foreach (JToken a in artistsToken)
+				foreach (System.Text.Json.Nodes.JsonNode a in artistsToken)
 				{
 					names.Add(((string?)a["name"]) ?? "");
 				}
 				artist = string.Join(", ", names);
 			}
 			string thumbUrl = "";
-			if (item["thumbUrl"] != null && item["thumbUrl"].Type == JTokenType.String)
+			if (item["thumbUrl"] != null && item["thumbUrl"] is System.Text.Json.Nodes.JsonValue)
 			{
 				thumbUrl = ((string?)item["thumbUrl"]) ?? "";
 			}
-			else if (item["thumbnails"] != null && item["thumbnails"] is JArray { Count: >0 } thumbsToken)
+			else if (item["thumbnails"] != null && item["thumbnails"] is System.Text.Json.Nodes.JsonArray { Count: >0 } thumbsToken)
 			{
 				thumbUrl = ((string?)thumbsToken[thumbsToken.Count - 1]["url"]) ?? "";
 			}
 			if (string.IsNullOrEmpty(thumbUrl))
 			{
-				JToken thumbObj = item["thumbnail"];
-				if (thumbObj != null && thumbObj.Type == JTokenType.Object)
+				System.Text.Json.Nodes.JsonNode thumbObj = item["thumbnail"];
+				if (thumbObj != null && thumbObj is System.Text.Json.Nodes.JsonObject)
 				{
-					if (thumbObj["thumbnails"] is JArray { Count: >0 } nested)
+					if (thumbObj["thumbnails"] is System.Text.Json.Nodes.JsonArray { Count: >0 } nested)
 					{
 						thumbUrl = ((string?)nested[nested.Count - 1]["url"]) ?? "";
 					}
 				}
-				else if (thumbObj != null && thumbObj.Type == JTokenType.Array && thumbObj is JArray { Count: >0 } nested2)
+				else if (thumbObj != null && thumbObj is System.Text.Json.Nodes.JsonArray { Count: >0 } nested2)
 				{
 					thumbUrl = ((string?)nested2[nested2.Count - 1]["url"]) ?? "";
 				}
@@ -495,7 +525,7 @@ namespace Spectre; public partial class MainWindow {
 			}
 			bool isPlaying = i == currentQueueIndex;
 			string numberText = (isPlaying ? "▶" : (i - startIdx + 1).ToString());
-			QueueItemViewModel vmItem = new QueueItemViewModel
+			newItems.Add(new QueueItemViewModel
 			{
 				Index = i,
 				Title = title,
@@ -504,12 +534,52 @@ namespace Spectre; public partial class MainWindow {
 				VideoId = videoId,
 				IsPlaying = isPlaying,
 				NumberText = numberText
-			};
-			queueVm.Items.Add(vmItem);
-			if ((i - startIdx + 1) % 20 == 0)
+			});
+		}
+
+		if (generation != _queueRenderGeneration)
+		{
+			return;
+		}
+
+		int targetCount = newItems.Count;
+		for (int k = 0; k < targetCount; k++)
+		{
+			QueueItemViewModel desired = newItems[k];
+			if (k < queueVm.Items.Count)
 			{
-				await Dispatcher.Yield(DispatcherPriority.Background);
+				QueueItemViewModel existing = queueVm.Items[k];
+				if (existing.VideoId == desired.VideoId &&
+				    existing.Title == desired.Title &&
+				    existing.Artist == desired.Artist &&
+				    existing.ThumbnailUrl == desired.ThumbnailUrl &&
+				    existing.Index == desired.Index &&
+				    existing.IsPlaying == desired.IsPlaying &&
+				    existing.NumberText == desired.NumberText)
+				{
+					continue;
+				}
+
+				existing.Index = desired.Index;
+				existing.Title = desired.Title;
+				existing.Artist = desired.Artist;
+				if (existing.ThumbnailUrl != desired.ThumbnailUrl)
+				{
+					existing.ThumbnailUrl = desired.ThumbnailUrl;
+				}
+				existing.VideoId = desired.VideoId;
+				existing.IsPlaying = desired.IsPlaying;
+				existing.NumberText = desired.NumberText;
 			}
+			else
+			{
+				queueVm.Items.Add(desired);
+			}
+		}
+
+		while (queueVm.Items.Count > targetCount)
+		{
+			queueVm.Items.RemoveAt(queueVm.Items.Count - 1);
 		}
 	}
 

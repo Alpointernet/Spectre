@@ -31,11 +31,9 @@ using System.Windows.Shapes;
 using System.Windows.Shell;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.Messaging;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Win32;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
-using SharpVectors.Converters;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using Spectre.Services;
 using Spectre.ViewModels;
 using Spectre.Views;
@@ -1453,7 +1451,7 @@ namespace Spectre; public partial class MainWindow {
 	{
 		try
 		{
-			JObject obj = new JObject
+			JsonObject obj = new JsonObject
 			{
 				["WindowWidth"] = base.Width,
 				["WindowHeight"] = base.Height,
@@ -1515,17 +1513,17 @@ namespace Spectre; public partial class MainWindow {
 				["ThemeBrightness"] = _themeBrightness,
 				["QueueIndex"] = _currentQueueIndex,
 				["OriginalQueueSize"] = _originalQueueSize,
-				["RecentSearches"] = new JArray(_recentSearches),
-				["BlockedCategories"] = new JArray(_blockedCategories),
-				["HiddenLibraryItems"] = JObject.FromObject(_hiddenLibraryItems),
+				["RecentSearches"] = JsonSerializer.SerializeToNode(_recentSearches)!.AsArray(),
+				["BlockedCategories"] = JsonSerializer.SerializeToNode(_blockedCategories)!.AsArray(),
+				["HiddenLibraryItems"] = JsonSerializer.SerializeToNode(_hiddenLibraryItems)!.AsObject(),
 				["CustomFontPath"] = _customFontPath,
-				["SavedRadios"] = JArray.FromObject(_savedRadios)
+				["SavedRadios"] = JsonSerializer.SerializeToNode(_savedRadios)!.AsArray()
 			};
 			string path = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Spectre", "session.json");
 			string tmpPath = path + ".tmp";
 			Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path));
-			string jsonStr = obj.ToString(Formatting.Indented);
-			string minifiedQueue = ((_currentQueue != null) ? _currentQueue.ToString(Formatting.None) : "null");
+			string jsonStr = obj.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
+			string minifiedQueue = ((_currentQueue != null) ? _currentQueue.ToJsonString(new JsonSerializerOptions()) : "null");
 			int lastBrace = jsonStr.LastIndexOf('}');
 			if (lastBrace != -1)
 			{
@@ -1564,15 +1562,40 @@ namespace Spectre; public partial class MainWindow {
 		}
 	}
 
-	private void LoadLastSession()
+		private void LoadWindowBounds()
 	{
 		try
 		{
 			string path = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Spectre", "session.json");
 			if (System.IO.File.Exists(path))
 			{
-				JObject json = JObject.Parse(System.IO.File.ReadAllText(path));
-				if (json["RecentSearches"] != null && json["RecentSearches"] is JArray arr)
+				JsonObject json = JsonNode.Parse(System.IO.File.ReadAllText(path))!.AsObject();
+				if (json["WindowWidth"] != null) base.Width = (double)json["WindowWidth"];
+				if (json["WindowHeight"] != null) base.Height = (double)json["WindowHeight"];
+				if (json["WindowLeft"] != null) base.Left = (double)json["WindowLeft"];
+				if (json["WindowTop"] != null) base.Top = (double)json["WindowTop"];
+				if (json["WindowState"] != null) base.WindowState = (WindowState)(int)json["WindowState"];
+				if (json["AlwaysOnTop"] != null)
+				{
+					_alwaysOnTop = (bool)json["AlwaysOnTop"];
+	
+				}
+				if (base.Left < SystemParameters.VirtualScreenLeft) base.Left = SystemParameters.VirtualScreenLeft;
+				if (base.Top < SystemParameters.VirtualScreenTop) base.Top = SystemParameters.VirtualScreenTop;
+			}
+		}
+		catch { }
+	}
+
+	private async Task LoadLastSessionAsync()
+	{
+		try
+		{
+			string path = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Spectre", "session.json");
+			if (System.IO.File.Exists(path))
+			{
+				JsonObject json = JsonNode.Parse(await System.IO.File.ReadAllTextAsync(path))!.AsObject();
+				if (json["RecentSearches"] != null && json["RecentSearches"] is JsonArray arr)
 				{
 					_recentSearches = (from x in arr
 						select (string?)x into x
@@ -1583,7 +1606,7 @@ namespace Spectre; public partial class MainWindow {
 				{
 					try
 					{
-						_savedRadios = json["SavedRadios"].ToObject<List<RadioStation>>() ?? new List<RadioStation>();
+						_savedRadios = json["SavedRadios"].Deserialize<List<RadioStation>>() ?? new List<RadioStation>();
 						if (_savedRadios.Any((RadioStation r) => r.Streams == null || r.Streams.Count == 0 || r.Streams.Any((RadioStream s) => s.Url.Contains("zeno.fm") || s.Url.Contains("streamafrica"))))
 						{
 							_savedRadios.Clear();
@@ -1599,11 +1622,11 @@ namespace Spectre; public partial class MainWindow {
 				}
 				if (json["BlockedCategories"] != null)
 				{
-					_blockedCategories = json["BlockedCategories"].ToObject<List<string>>() ?? new List<string>();
+					_blockedCategories = json["BlockedCategories"].Deserialize<List<string>>() ?? new List<string>();
 				}
 				if (json["HiddenLibraryItems"] != null)
 				{
-					_hiddenLibraryItems = json["HiddenLibraryItems"].ToObject<Dictionary<string, string>>() ?? new Dictionary<string, string>();
+					_hiddenLibraryItems = json["HiddenLibraryItems"].Deserialize<Dictionary<string, string>>() ?? new Dictionary<string, string>();
 				}
 				if (json["CustomFontPath"] != null)
 				{
@@ -1849,9 +1872,9 @@ namespace Spectre; public partial class MainWindow {
 				{
 					_groupLibraryTabs = (bool)json["GroupLibraryTabs"];
 				}
-				UpdateTabVisibility();
+				UpdateTabVisibility(instant: true);
 				ApplyThemeColors();
-				base.Topmost = _alwaysOnTop;
+
 				if (!_enableSMTC)
 				{
 					if (_smtcPlayer != null)
@@ -1898,7 +1921,7 @@ namespace Spectre; public partial class MainWindow {
 				SetTimelineVisibility(!isRadio, animate: false);
 				if (json["Queue"] != null)
 				{
-					_currentQueue = json["Queue"] as JArray;
+					_currentQueue = json["Queue"] as JsonArray;
 				}
 				if (json["QueueIndex"] != null)
 				{
@@ -1910,32 +1933,32 @@ namespace Spectre; public partial class MainWindow {
 				}
 				if (_currentQueue == null || _currentQueue.Count == 0)
 				{
-					_currentQueue = new JArray(new JObject
+					_currentQueue = new JsonArray(new JsonObject
 					{
 						["videoId"] = videoId,
 						["title"] = title,
-						["artists"] = new JArray(new JObject { ["name"] = artist }),
-						["album"] = new JObject
+						["artists"] = new JsonArray(new JsonObject { ["name"] = artist }),
+						["album"] = new JsonObject
 						{
 							["name"] = album,
 							["id"] = albumId
 						},
-						["thumbnails"] = new JArray(new JObject { ["url"] = thumbUrl })
+						["thumbnails"] = new JsonArray(new JsonObject { ["url"] = thumbUrl })
 					});
 					_currentQueueIndex = 0;
 					_originalQueueSize = 1;
 				}
-				JArray sessionArtistsData = null;
+				JsonArray sessionArtistsData = null;
 				if (_currentQueueIndex >= 0 && _currentQueueIndex < _currentQueue.Count)
 				{
-					JToken qItem = _currentQueue[_currentQueueIndex];
+					JsonNode qItem = _currentQueue[_currentQueueIndex];
 					if ((string?)qItem["videoId"] == videoId)
 					{
-						sessionArtistsData = qItem["artists"] as JArray;
+						sessionArtistsData = qItem["artists"] as JsonArray;
 					}
 				}
 				base.Title = "Spectre";
-				PlayerBarViewModel vm = App.Current.Services.GetService<PlayerBarViewModel>();
+				PlayerBarViewModel vm = App.Current.PlayerBarViewModel;
 				if (vm != null)
 				{
 					vm.Title = title;
@@ -1952,7 +1975,7 @@ namespace Spectre; public partial class MainWindow {
 				}
 				else if (!string.IsNullOrEmpty(thumbUrl))
 				{
-					Task.Run(async delegate
+					_ = Task.Run(async delegate
 					{
 						_ = 1;
 						try
@@ -1970,7 +1993,7 @@ namespace Spectre; public partial class MainWindow {
 									bitmapImage.StreamSource = streamSource;
 									bitmapImage.EndInit();
 									bitmapImage.Freeze();
-									if (_imageCache.Count > 500)
+									if (_imageCache.Count > 100)
 									{
 										_imageCache.Clear();
 									}
@@ -1987,12 +2010,12 @@ namespace Spectre; public partial class MainWindow {
 						}
 					});
 				}
-				_ = _ = _ = _ = MaintainPreloadBufferAsync();
+				_ = MaintainPreloadBufferAsync();
 				_pauseRequested = true;
-				_ = _ = _ = _ = MaintainPreloadBufferAsync();
+				_ = MaintainPreloadBufferAsync();
 				_pauseRequested = true;
 				_player.Stop();
-				GetStreamForPlaybackAsync(videoId, CancellationToken.None).ContinueWith(delegate(Task<PlaybackStreamInfo> t)
+				_ = GetStreamForPlaybackAsync(videoId, CancellationToken.None).ContinueWith(delegate(Task<PlaybackStreamInfo> t)
 				{
 					if (t.Result != null)
 					{
@@ -2016,3 +2039,6 @@ namespace Spectre; public partial class MainWindow {
 		}
 	}
 }
+
+
+

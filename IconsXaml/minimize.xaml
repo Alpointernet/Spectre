@@ -1,0 +1,17 @@
+﻿<DrawingGroup xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <DrawingGroup>
+    <DrawingGroup.Transform>
+      <ScaleTransform ScaleX="33.333333" ScaleY="33.333333" />
+    </DrawingGroup.Transform>
+    <DrawingGroup>
+      <GeometryDrawing>
+        <GeometryDrawing.Pen>
+          <Pen Brush="#FFFFFFFF" Thickness="2" StartLineCap="Round" EndLineCap="Round" LineJoin="Round" MiterLimit="1" />
+        </GeometryDrawing.Pen>
+        <GeometryDrawing.Geometry>
+          <PathGeometry FillRule="Nonzero" Figures="M5,12L19,12" />
+        </GeometryDrawing.Geometry>
+      </GeometryDrawing>
+    </DrawingGroup>
+  </DrawingGroup>
+</DrawingGroup>

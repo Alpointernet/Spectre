@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<UserControl x:Class="Spectre.Views.SidebarTab" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:svgc="http://sharpvectors.codeplex.com/svgc/" x:Name="Root" Background="#00FFFFFF" Cursor="Hand" Margin="0,0,0,5" xmlns:views="clr-namespace:Spectre.Views;assembly=Spectre">
+<UserControl x:Class="Spectre.Views.SidebarTab" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"  x:Name="Root" Background="#00FFFFFF" Cursor="Hand" Margin="0,0,0,5" xmlns:views="clr-namespace:Spectre.Views;assembly=Spectre">
   <Border Name="MainBorder" CornerRadius="6" Padding="8,5,0,5" Background="#00FFFFFF">
     <UIElement.InputBindings>
       <MouseBinding MouseAction="LeftClick" Command="{Binding Command, ElementName=Root}" CommandParameter="{Binding PageId, ElementName=Root}" />
@@ -7,7 +7,7 @@
     <StackPanel Orientation="Horizontal">
       <Border Width="32" Height="32" Margin="0,0,10,0">
         <Grid>
-          <svgc:SvgViewbox Name="IconViewbox" Width="20" Height="20" HorizontalAlignment="Center" VerticalAlignment="Center" />
+          <Image Name="IconViewbox" Width="20" Height="20" HorizontalAlignment="Center" VerticalAlignment="Center" />
           <Rectangle Name="IconTintRectangle" Fill="{Binding Foreground, ElementName=TitleText}" Width="20" Height="20" HorizontalAlignment="Center" VerticalAlignment="Center">
             <Rectangle.OpacityMask>
               <VisualBrush Visual="{Binding ElementName=IconViewbox}" Stretch="None" />
@@ -19,3 +19,5 @@
     </StackPanel>
   </Border>
 </UserControl>
+
+

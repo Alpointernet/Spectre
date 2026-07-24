@@ -24,25 +24,17 @@
     <None Remove="Icons\highresapp.png" />
     <None Remove="Icons\*.svg" />
     <None Remove="Fonts\montserrat.ttf" />
+    <Resource Include="Icons\*.svg" />
     <Resource Include="Icons\app.png" />
     <Resource Include="Icons\highresapp.png" />
     <Resource Include="Fonts\montserrat.ttf" />
-    <SplashScreen Include="Icons\splash.png" />
-    <Content Include="Icons\*.svg">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="LibVLCSharp" Version="3.*" />
-    <PackageReference Include="VideoLAN.LibVLC.Windows" Version="3.*" />
-    <PackageReference Include="Newtonsoft.Json" Version="13.*" />
     <PackageReference Include="YoutubeExplode" Version="6.*" />
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.*" />
-    <PackageReference Include="SharpVectors" Version="1.*" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.*" />
     <PackageReference Include="TagLibSharp" Version="2.*" />
     <PackageReference Include="DiscordRichPresence" Version="1.6.1.70" />
-    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.*" />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.*" />
   </ItemGroup>
 </Project>
+

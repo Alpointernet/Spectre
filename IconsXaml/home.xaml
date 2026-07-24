@@ -1,0 +1,16 @@
+﻿<DrawingGroup xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <DrawingGroup>
+    <DrawingGroup.Transform>
+      <ScaleTransform ScaleX="1.5625" ScaleY="1.5625" />
+    </DrawingGroup.Transform>
+    <DrawingGroup>
+      <DrawingGroup>
+        <GeometryDrawing Brush="#FFFFFFFF">
+          <GeometryDrawing.Geometry>
+            <PathGeometry FillRule="Nonzero" Figures="M453.794,170.688L283.185,10.753C267.898,-3.584,244.102,-3.584,228.815,10.753L58.206,170.688C50.194,178.203,45.641,188.698,45.641,199.688L45.641,472.25C45.641,494.204,63.444,512,85.391,512L206.338,512 206.338,395.145 305.662,395.145 305.662,512 426.608,512C448.555,512,466.359,494.204,466.359,472.25L466.359,199.688C466.359,188.698,461.805,178.203,453.794,170.688z" />
+          </GeometryDrawing.Geometry>
+        </GeometryDrawing>
+      </DrawingGroup>
+    </DrawingGroup>
+  </DrawingGroup>
+</DrawingGroup>

@@ -3,7 +3,6 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Shapes;
-using SharpVectors.Converters;
 using Spectre.ViewModels;
 
 namespace Spectre.Views;
@@ -12,7 +11,7 @@ public partial class PlayerBarControl : UserControl
 {
 	public Grid OldPlayerInfoPanelRef => OldPlayerInfoPanel;
 
-	public SvgViewbox OldPlayerThumbnailFallbackRef => OldPlayerThumbnailFallback;
+	public System.Windows.Controls.Image OldPlayerThumbnailFallbackRef => OldPlayerThumbnailFallback;
 
 	public Rectangle OldPlayerThumbnailRef => OldPlayerThumbnail;
 
@@ -28,7 +27,7 @@ public partial class PlayerBarControl : UserControl
 
 	public Border PlayerThumbnailBorderRef => PlayerThumbnailBorder;
 
-	public SvgViewbox PlayerThumbnailFallbackRef => PlayerThumbnailFallback;
+	public System.Windows.Controls.Image PlayerThumbnailFallbackRef => PlayerThumbnailFallback;
 
 	public Rectangle PlayerThumbnailOldRef => PlayerThumbnailOld;
 
@@ -44,15 +43,15 @@ public partial class PlayerBarControl : UserControl
 
 	public Button PlayPauseBtnRef => PlayPauseBtn;
 
-	public SvgViewbox PlayIconRef => PlayIcon;
+	public System.Windows.Controls.Image PlayIconRef => PlayIcon;
 
-	public SvgViewbox PauseIconRef => PauseIcon;
+	public System.Windows.Controls.Image PauseIconRef => PauseIcon;
 
 	public Button NextBtnRef => NextBtn;
 
 	public Button RepeatBtnRef => RepeatBtn;
 
-	public SvgViewbox RepeatIconOffRef => RepeatIconOff;
+	public System.Windows.Controls.Image RepeatIconOffRef => RepeatIconOff;
 
 	public System.Windows.Shapes.Rectangle RepeatIconOnRef => RepeatIconOn;
 
@@ -66,21 +65,21 @@ public partial class PlayerBarControl : UserControl
 
 	public Button QueueBtnRef => QueueBtn;
 
-	public SvgViewbox QueueIconOffRef => QueueIconOff;
+	public System.Windows.Controls.Image QueueIconOffRef => QueueIconOff;
 
 	public System.Windows.Shapes.Rectangle QueueIconOnRef => QueueIconOn;
 
 	public Button LyricsBtnRef => LyricsBtn;
 
-	public SvgViewbox LyricsIconOffRef => LyricsIconOff;
+	public System.Windows.Controls.Image LyricsIconOffRef => LyricsIconOff;
 
 	public System.Windows.Shapes.Rectangle LyricsIconOnRef => LyricsIconOn;
 
-	public SvgViewbox ShuffleIconOffRef => ShuffleIconOff;
+	public System.Windows.Controls.Image ShuffleIconOffRef => ShuffleIconOff;
 
 	public System.Windows.Shapes.Rectangle ShuffleIconOnRef => ShuffleIconOn;
 
-	public SvgViewbox VolumeIconRef => VolumeIcon;
+	public System.Windows.Controls.Image VolumeIconRef => VolumeIcon;
 
 	public Slider VolumeSliderRef => VolumeSlider;
 
@@ -119,7 +118,7 @@ public partial class PlayerBarControl : UserControl
 		InitializeComponent();
 		try
 		{
-			base.DataContext = App.Current.Services.GetService(typeof(PlayerBarViewModel));
+			base.DataContext = App.Current.PlayerBarViewModel;
 		}
 		catch
 		{
@@ -322,7 +321,7 @@ public partial class PlayerBarControl : UserControl
 		}
 	}
 
-	private void CompositionTarget_Rendering(object sender, EventArgs e)
+	private void CompositionTarget_Rendering(object? sender, EventArgs e)
 	{
 		if (!_isVinylStarted || _isVinylPaused)
 		{
@@ -518,3 +517,6 @@ public partial class PlayerBarControl : UserControl
 		}
 	}
 }
+
+
+
