@@ -31,11 +31,10 @@ using System.Windows.Shapes;
 using System.Windows.Shell;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.Messaging;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Win32;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
-using SharpVectors.Converters;
+
+using System.Text.Json.Nodes;
+using System.Text.Json;
 using Spectre.Services;
 using Spectre.ViewModels;
 using Spectre.Views;
@@ -94,9 +93,9 @@ namespace Spectre; public partial class MainWindow {
 				HorizontalAlignment = System.Windows.HorizontalAlignment.Center,
 				Margin = new Thickness(0.0, 80.0, 0.0, 0.0)
 			};
-			loginPanel.Children.Add(new SvgViewbox
+			loginPanel.Children.Add(new System.Windows.Controls.Image
 			{
-				Source = new Uri("Icons/lock.svg", UriKind.Relative),
+				Source = (System.Windows.Media.DrawingImage)System.Windows.Application.Current.FindResource("lockIcon"),
 				Width = 52.0,
 				Height = 52.0,
 				HorizontalAlignment = System.Windows.HorizontalAlignment.Center,
@@ -147,12 +146,12 @@ namespace Spectre; public partial class MainWindow {
 		if (_cachedPlaylists != null)
 		{
 			int delayMs = 0;
-			foreach (JToken cachedPlaylist in _cachedPlaylists)
+			foreach (JsonNode cachedPlaylist in _cachedPlaylists)
 			{
 				string title = ((string?)cachedPlaylist["title"]) ?? "";
 				string id = ((string?)cachedPlaylist["playlistId"]) ?? "";
 				string tUrl = "";
-				if (cachedPlaylist["thumbnails"] is JArray { Count: >0 } thumbs)
+				if (cachedPlaylist["thumbnails"] is JsonArray { Count: >0 } thumbs)
 				{
 					tUrl = ((string?)thumbs[thumbs.Count - 1]["url"]) ?? "";
 				}
@@ -326,9 +325,9 @@ namespace Spectre; public partial class MainWindow {
 				Margin = new Thickness(15.0, 0.0, 0.0, 0.0),
 				IsEnabled = false
 			};
-			shuffleBtn.Content = new SvgViewbox
+			shuffleBtn.Content = new System.Windows.Controls.Image
 			{
-				Source = new Uri("Icons/shuffle.svg", UriKind.Relative),
+				Source = (System.Windows.Media.DrawingImage)System.Windows.Application.Current.FindResource("shuffleIcon"),
 				Width = 20.0,
 				Height = 20.0,
 				VerticalAlignment = VerticalAlignment.Center,
@@ -368,13 +367,13 @@ namespace Spectre; public partial class MainWindow {
 				try
 				{
 					if (ct.IsCancellationRequested) return;
-					JObject json = ((!(type == "Mix")) ? (await BackendService.Instance.GetPlaylistTracksAsync(playlistId, ct)) : (await BackendService.Instance.GetMixTracksAsync(playlistId, ct)));
+					JsonObject json = ((!(type == "Mix")) ? (await BackendService.Instance.GetPlaylistTracksAsync(playlistId, ct)) : (await BackendService.Instance.GetMixTracksAsync(playlistId, ct)));
 					if (ct.IsCancellationRequested) return;
 					if (json["error"] != null)
 					{
 						throw new Exception(((string?)json["error"]) ?? "Error");
 					}
-					if (!(json["data"] is JObject data))
+					if (!(json["data"] is JsonObject data))
 					{
 						throw new Exception("No data returned.");
 					}
@@ -393,7 +392,7 @@ namespace Spectre; public partial class MainWindow {
 
 						// Update image if higher resolution thumbnail is available
 						string highResThumb = thumbUrl;
-						if (data["thumbnails"] is JArray { Count: >0 } tArr)
+						if (data["thumbnails"] is JsonArray { Count: >0 } tArr)
 						{
 							highResThumb = ((string?)tArr[tArr.Count - 1]["url"]) ?? thumbUrl;
 							if (highResThumb != thumbUrl && string.IsNullOrEmpty(thumbUrl))
@@ -412,7 +411,7 @@ namespace Spectre; public partial class MainWindow {
 
 						// Update Subtitle/Artist Links
 						string actualArtistName = "";
-						JArray artistsArr = data["artists"] as JArray;
+						JsonArray artistsArr = data["artists"] as JsonArray;
 						if (artistsArr != null && artistsArr.Count > 0)
 						{
 							actualArtistName = ((string?)artistsArr[0]["name"]) ?? "";
@@ -421,7 +420,7 @@ namespace Spectre; public partial class MainWindow {
 						if (type == "Album" && artistsArr != null && artistsArr.Count > 0)
 						{
 							List<string> artistNames = new List<string>();
-							foreach (JToken a in artistsArr)
+							foreach (JsonNode a in artistsArr)
 							{
 								artistNames.Add(((string?)a["name"]) ?? "");
 							}
@@ -470,7 +469,7 @@ namespace Spectre; public partial class MainWindow {
 							safeArtist = displaySubtitle.Split("•")[0].Trim();
 						}
 
-						JArray tracks = data["tracks"] as JArray;
+						JsonArray tracks = data["tracks"] as JsonArray;
 
 						// Define Play / Shuffle Click handlers now that tracks are available
 						Action<bool> startPlayback = delegate(bool shuffle)
@@ -482,42 +481,42 @@ namespace Spectre; public partial class MainWindow {
 							}
 							if (tracks != null && tracks.Count > 0)
 							{
-								foreach (JToken item2 in tracks)
+								foreach (JsonNode item2 in tracks)
 								{
-									if (item2 is JObject jObject && !(jObject["thumbnails"] is JArray { Count: not 0 }) && !string.IsNullOrEmpty(highResThumb))
+									if (item2 is JsonObject JsonObject && !(JsonObject["thumbnails"] is JsonArray { Count: not 0 }) && !string.IsNullOrEmpty(highResThumb))
 									{
-										jObject["thumbnails"] = new JArray(new JObject { ["url"] = highResThumb });
+										JsonObject["thumbnails"] = new JsonArray(new JsonObject { ["url"] = highResThumb });
 									}
 								}
 								int num = (shuffle ? new Random().Next(tracks.Count) : 0);
-								InitQueueAndShuffle(new JArray(tracks), num);
-								JToken jToken = tracks[num];
-								string text = ((string?)jToken["videoId"]) ?? "";
-								string title2 = ((string?)jToken["title"]) ?? "";
+								InitQueueAndShuffle((System.Text.Json.Nodes.JsonArray)tracks.DeepClone(), num);
+								JsonNode JsonNode = tracks[num];
+								string text = ((string?)JsonNode["videoId"]) ?? "";
+								string title2 = ((string?)JsonNode["title"]) ?? "";
 								string artist = subtitle;
-								JArray jArray2 = jToken["artists"] as JArray;
+								JsonArray jArray2 = JsonNode["artists"] as JsonArray;
 								if (jArray2 == null || jArray2.Count == 0)
 								{
-									jToken["artists"] = new JArray(new JObject { ["name"] = safeArtist });
-									jArray2 = jToken["artists"] as JArray;
+									JsonNode["artists"] = new JsonArray(new JsonObject { ["name"] = safeArtist });
+									jArray2 = JsonNode["artists"] as JsonArray;
 								}
 								if (jArray2 != null && jArray2.Count > 0)
 								{
 									List<string> list = new List<string>();
-									foreach (JToken current in jArray2)
+									foreach (JsonNode current in jArray2)
 									{
 										list.Add(((string?)current["name"]) ?? "");
 									}
 									artist = string.Join(", ", list);
 								}
 								string thumbUrl2 = highResThumb;
-								if (jToken["thumbnails"] is JArray { Count: >0 } jArray3)
+								if (JsonNode["thumbnails"] is JsonArray { Count: >0 } jArray3)
 								{
 									thumbUrl2 = ((string?)jArray3[jArray3.Count - 1]["url"]) ?? "";
 								}
 								if (!string.IsNullOrEmpty(text))
 								{
-									JArray artistsData = jToken["artists"] as JArray;
+									JsonArray artistsData = JsonNode["artists"] as JsonArray;
 									_ = PlayTrack(text, title2, artist, thumbUrl2, addToHistory: true, startPaused: false, useCrossfade: false, 0, artistsData);
 								}
 							}
@@ -541,43 +540,43 @@ namespace Spectre; public partial class MainWindow {
 							bool isLikedSongsPage = type == "Playlist" && IsLikedSongsPage(playlistId, displayTitle);
 							for (int i = 0; i < tracks.Count; i++)
 							{
-								JToken item = tracks[i];
+								JsonNode item = tracks[i];
 								string videoId = ((string?)item["videoId"]) ?? "";
 								if (!string.IsNullOrEmpty(videoId))
 								{
 									string tTitle = ((string?)item["title"]) ?? "";
 									string artistsStr = subtitle;
-									JArray artistsToken = item["artists"] as JArray;
+									JsonArray artistsToken = item["artists"] as JsonArray;
 									if (artistsToken == null || artistsToken.Count == 0)
 									{
-										if (item is JObject itemObj2)
+										if (item is JsonObject itemObj2)
 										{
-											itemObj2["artists"] = new JArray(new JObject { ["name"] = safeArtist });
+											itemObj2["artists"] = new JsonArray(new JsonObject { ["name"] = safeArtist });
 										}
-										artistsToken = item["artists"] as JArray;
+										artistsToken = item["artists"] as JsonArray;
 									}
 									if (artistsToken != null && artistsToken.Count > 0)
 									{
 										List<string> names = new List<string>();
-										foreach (JToken a2 in artistsToken)
+										foreach (JsonNode a2 in artistsToken)
 										{
 											names.Add(((string?)a2["name"]) ?? "");
 										}
 										artistsStr = string.Join(", ", names);
 									}
 									string tUrl = highResThumb;
-									if (item["thumbnails"] is JArray { Count: >0 } thumbs)
+									if (item["thumbnails"] is JsonArray { Count: >0 } thumbs)
 									{
 										tUrl = ((string?)thumbs[thumbs.Count - 1]["url"]) ?? "";
 									}
-									else if (item is JObject itemObj3 && !string.IsNullOrEmpty(highResThumb))
+									else if (item is JsonObject itemObj3 && !string.IsNullOrEmpty(highResThumb))
 									{
-										itemObj3["thumbnails"] = new JArray(new JObject { ["url"] = highResThumb });
+										itemObj3["thumbnails"] = new JsonArray(new JsonObject { ["url"] = highResThumb });
 									}
 									string setVideoId = ((string?)item["setVideoId"]) ?? "";
 									string album = "";
 									string albumId = "";
-									if (item["album"] is JObject albumObj)
+									if (item["album"] is JsonObject albumObj)
 									{
 										album = ((string?)albumObj["name"]) ?? "";
 										albumId = ((string?)albumObj["id"]) ?? "";
@@ -606,11 +605,11 @@ namespace Spectre; public partial class MainWindow {
 									string f_duration = duration;
 									string f_type = type;
 									string f_playlistId = playlistId;
-									JArray f_tracks = tracks;
+									JsonArray f_tracks = tracks;
 									int f_i = i;
 									string f_setVideoId = setVideoId;
 									string f_isLikedSongsPage = (isLikedSongsPage ? "true" : "false");
-									JArray f_artistsToken = artistsToken;
+									JsonArray f_artistsToken = artistsToken;
 									string f_displayAlbum = null;
 									if (type == "Album" || type == "Single" || type == "EP")
 									{
@@ -706,7 +705,7 @@ namespace Spectre; public partial class MainWindow {
 		addMenu.Items.Clear();
 		if (_cachedPlaylists != null && _cachedPlaylists.Count > 0)
 		{
-			foreach (JToken pl in _cachedPlaylists)
+			foreach (JsonNode pl in _cachedPlaylists)
 			{
 				string plTitle = ((string?)pl["title"]) ?? "";
 				string plId = ((string?)pl["playlistId"]) ?? "";
@@ -732,7 +731,7 @@ namespace Spectre; public partial class MainWindow {
 						string officialThumbUrl = "";
 						try
 						{
-							if ((await BackendService.Instance.GetPlaylistTracksAsync(plId, CancellationToken.None))["data"]?["thumbnails"] is JArray { Count: >0 } thumbs)
+							if ((await BackendService.Instance.GetPlaylistTracksAsync(plId, CancellationToken.None))["data"]?["thumbnails"] is JsonArray { Count: >0 } thumbs)
 							{
 								officialThumbUrl = ((string?)thumbs[thumbs.Count - 1]["url"]) ?? "";
 							}
@@ -784,7 +783,7 @@ namespace Spectre; public partial class MainWindow {
 
 	private void InitSMTC()
 	{
-		if (!_enableSMTC)
+		if (!_enableSMTC || _smtcPlayer != null)
 		{
 			return;
 		}
@@ -803,6 +802,7 @@ namespace Spectre; public partial class MainWindow {
 			_smtc.IsPauseEnabled = true;
 			_smtc.IsNextEnabled = true;
 			_smtc.IsPreviousEnabled = true;
+			_smtc.PlaybackStatus = MediaPlaybackStatus.Paused;
 			_smtc.ButtonPressed += delegate(SystemMediaTransportControls s, SystemMediaTransportControlsButtonPressedEventArgs args)
 			{
 				base.Dispatcher.Invoke(delegate
@@ -822,6 +822,13 @@ namespace Spectre; public partial class MainWindow {
 					}
 				});
 			};
+			// The media flyout can be opened before the window finishes restoring its
+			// session. Apply any already-known track now; LoadLastSessionAsync applies
+			// it again after restoration if necessary.
+			if (!string.IsNullOrWhiteSpace(_currentTitle) || !string.IsNullOrWhiteSpace(_currentArtist))
+			{
+				UpdateSMTCMetadata(_currentTitle ?? "", _currentArtist ?? "", _currentThumbUrl ?? "");
+			}
 		}
 		catch
 		{
@@ -842,19 +849,12 @@ namespace Spectre; public partial class MainWindow {
 			updater.MusicProperties.Artist = artist;
 			if (!string.IsNullOrEmpty(thumbnailUrl))
 			{
-				if (thumbnailUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase))
-				{
-					try
-					{
-						updater.Thumbnail = RandomAccessStreamReference.CreateFromUri(new Uri(thumbnailUrl));
-					}
-					catch
-					{
-					}
-				}
-				else
+				try
 				{
 					updater.Thumbnail = RandomAccessStreamReference.CreateFromUri(new Uri(thumbnailUrl));
+				}
+				catch
+				{
 				}
 			}
 			updater.Update();
@@ -865,7 +865,7 @@ namespace Spectre; public partial class MainWindow {
 		UpdateDiscordRPC();
 	}
 
-	private async Task PlayTrack(string videoId, string title, string artist, string thumbUrl, bool addToHistory = true, bool startPaused = false, bool useCrossfade = false, int transitionDirection = 0, JArray? artistsData = null, JObject? albumData = null)
+	private async Task PlayTrack(string videoId, string title, string artist, string thumbUrl, bool addToHistory = true, bool startPaused = false, bool useCrossfade = false, int transitionDirection = 0, JsonArray? artistsData = null, JsonObject? albumData = null)
 	{
 		if (transitionDirection == 0)
 		{
@@ -903,7 +903,14 @@ namespace Spectre; public partial class MainWindow {
 		_playbackCts?.Cancel();
 		_playbackCts = new CancellationTokenSource();
 		CancellationToken token = _playbackCts.Token;
-		if (addToHistory && !string.IsNullOrEmpty(_currentVideoId) && _currentVideoId != videoId)
+		// Choosing a song directly starts a new listening run. Queue navigation uses
+		// a non-zero transition direction and deliberately keeps its local history.
+		bool startsNewPlaybackRun = addToHistory && transitionDirection == 0;
+		if (startsNewPlaybackRun)
+		{
+			_playbackHistory.Clear();
+		}
+		if (addToHistory && !startsNewPlaybackRun && !string.IsNullOrEmpty(_currentVideoId) && _currentVideoId != videoId)
 		{
 			_playbackHistory.Push(new PlaybackHistoryEntry
 			{
@@ -919,13 +926,13 @@ namespace Spectre; public partial class MainWindow {
 		_playedVideoIds.Add(videoId);
 		if (_currentQueue == null || _currentQueue.Count == 0)
 		{
-			_currentQueue = new JArray(new JObject
+			_currentQueue = new JsonArray(new JsonObject
 			{
 				["videoId"] = videoId,
 				["title"] = title,
-				["artists"] = artistsData ?? new JArray(new JObject { ["name"] = artist }),
-				["album"] = albumData ?? new JObject(),
-				["thumbnails"] = new JArray(new JObject { ["url"] = thumbUrl })
+				["artists"] = artistsData?.DeepClone() ?? new JsonArray(new JsonObject { ["name"] = artist }),
+				["album"] = albumData?.DeepClone() ?? new JsonObject(),
+				["thumbnails"] = new JsonArray(new JsonObject { ["url"] = thumbUrl })
 			});
 			_currentQueueIndex = 0;
 			_originalQueueSize = 1;
@@ -944,18 +951,18 @@ namespace Spectre; public partial class MainWindow {
 		string previousTitleForTransition = MainPlayerBarControl.PlayerTitleRef?.Text;
 		string previousArtistForTransition = MainPlayerBarControl.PlayerArtistPanelRef?.Text;
 		System.Windows.Media.Brush previousThumbBrushForTransition = MainPlayerBarControl.PlayerThumbnailRef?.Fill;
-		PlayerBarViewModel vm = App.Current.Services.GetService<PlayerBarViewModel>();
+		PlayerBarViewModel vm = App.Current.PlayerBarViewModel;
 		if (vm != null)
 		{
 			vm.Title = title;
 		}
-		JArray currentArtistsData = artistsData;
+		JsonArray currentArtistsData = artistsData;
 		if (currentArtistsData == null && _currentQueue != null && _currentQueueIndex >= 0 && _currentQueueIndex < _currentQueue.Count)
 		{
-			JToken qItem = _currentQueue[_currentQueueIndex];
+			JsonNode qItem = _currentQueue[_currentQueueIndex];
 			if ((string?)qItem["videoId"] == videoId)
 			{
-				currentArtistsData = qItem["artists"] as JArray;
+				currentArtistsData = qItem["artists"] as JsonArray;
 			}
 		}
 		PopulateArtistLinks(MainPlayerBarControl.PlayerArtistPanelRef, artist, 12, currentArtistsData);
@@ -1021,7 +1028,7 @@ namespace Spectre; public partial class MainWindow {
 		{
 			_ = _ = _ = _ = ShowLyricsViewAsync(replaceCurrentLyrics: true);
 		}
-		PlayerBarViewModel vmTime = App.Current.Services.GetService<PlayerBarViewModel>();
+		PlayerBarViewModel vmTime = App.Current.PlayerBarViewModel;
 		if (vmTime != null)
 		{
 			vmTime.CurrentTimeText = "0:00";
@@ -1054,21 +1061,21 @@ namespace Spectre; public partial class MainWindow {
 					{
 						bytes = await BackendService.Instance.DownloadImageAsync(thumbUrl, CancellationToken.None);
 					}
+					BitmapImage bitmapImage = new BitmapImage();
+					using (MemoryStream streamSource = new MemoryStream(bytes))
+					{
+						bitmapImage.BeginInit();
+						bitmapImage.CacheOption = BitmapCacheOption.OnLoad;
+						bitmapImage.DecodePixelWidth = 600;
+						bitmapImage.StreamSource = streamSource;
+						bitmapImage.EndInit();
+					}
+					bitmapImage.Freeze();
 					await base.Dispatcher.InvokeAsync(delegate
 					{
 						try
 						{
-							BitmapImage bitmapImage = new BitmapImage();
-							using (MemoryStream streamSource = new MemoryStream(bytes))
-							{
-								bitmapImage.BeginInit();
-								bitmapImage.CacheOption = BitmapCacheOption.OnLoad;
-								bitmapImage.DecodePixelWidth = 600;
-								bitmapImage.StreamSource = streamSource;
-								bitmapImage.EndInit();
-							}
-							bitmapImage.Freeze();
-							if (_imageCache.Count > 500)
+							if (_imageCache.Count > 100)
 							{
 								_imageCache.Clear();
 							}
@@ -1078,7 +1085,7 @@ namespace Spectre; public partial class MainWindow {
 						catch
 						{
 						}
-					});
+					}, DispatcherPriority.Background);
 				}
 				catch
 				{
@@ -1139,13 +1146,17 @@ namespace Spectre; public partial class MainWindow {
 			if (!token.IsCancellationRequested)
 			{
 				_isTrackLoading = false;
-				PlayerBarViewModel vmTime_tmp = App.Current.Services.GetService<PlayerBarViewModel>();
+				PlayerBarViewModel vmTime_tmp = App.Current.PlayerBarViewModel;
 				if (vmTime_tmp != null)
 				{
 					vmTime_tmp.CurrentTimeText = "Error";
 				}
 				MainTopbarControl.StatusLabelRef.Text = "Playback failed. See logs for details.";
 				AppLogger.Log($"Playback: PlayTrack failed for '{title}' ({videoId}) - {value.Message}", LogLevel.Error);
+				if (transitionDirection > 0)
+				{
+					PlayNextInQueue();
+				}
 			}
 		}
 	}
@@ -1260,10 +1271,14 @@ namespace Spectre; public partial class MainWindow {
 			activeIds.Add(vid);
 			if (_preloadTasks.ContainsKey(vid))
 			{
+				if (i2 == _currentQueueIndex + 1 && _preloadTasks.TryGetValue(vid, out Task<PlaybackStreamInfo> existingTask))
+				{
+					PrepareNextPlayerWhenReady(vid, existingTask);
+				}
 				continue;
 			}
 			_ = (string?)_currentQueue[i2]["title"];
-			if (_currentQueue[i2]["artists"] is JArray { Count: >0 } artistsToken)
+			if (_currentQueue[i2]["artists"] is JsonArray { Count: >0 } artistsToken)
 			{
 				if ((string?)artistsToken[0]["name"] != null)
 				{
@@ -1273,7 +1288,12 @@ namespace Spectre; public partial class MainWindow {
 			{
 				_ = (string?)_currentQueue[i2]["artist"];
 			}
-			_preloadTasks[vid] = GetStreamForPlaybackThrottledAsync(vid, CancellationToken.None);
+			Task<PlaybackStreamInfo> preloadTask = GetStreamForPlaybackThrottledAsync(vid, CancellationToken.None);
+			_preloadTasks[vid] = preloadTask;
+			if (i2 == _currentQueueIndex + 1)
+			{
+				PrepareNextPlayerWhenReady(vid, preloadTask);
+			}
 			PrefetchThumbnail(_currentQueue[i2]);
 		}
 		List<string> keysToRemove = new List<string>();
@@ -1288,6 +1308,20 @@ namespace Spectre; public partial class MainWindow {
 		{
 			_preloadTasks.TryRemove(key2, out Task<PlaybackStreamInfo> _);
 		}
+	}
+
+	private void PrepareNextPlayerWhenReady(string videoId, Task<PlaybackStreamInfo> preloadTask)
+	{
+		_ = preloadTask.ContinueWith(task =>
+		{
+			if (task.Status != TaskStatus.RanToCompletion || string.IsNullOrWhiteSpace(task.Result.Url)) return;
+			_ = base.Dispatcher.InvokeAsync(() =>
+			{
+				if (_currentQueue == null || _currentQueueIndex + 1 >= _currentQueue.Count ||
+					(string?)_currentQueue[_currentQueueIndex + 1]["videoId"] != videoId) return;
+				_player.Preload(task.Result.Url);
+			});
+		}, TaskScheduler.Default);
 	}
 
 	private async Task MaintainPreloadBufferAsync()
@@ -1400,21 +1434,21 @@ namespace Spectre; public partial class MainWindow {
 		if (_currentQueue != null && _currentQueueIndex > 0)
 		{
 			_currentQueueIndex--;
-			JToken prevItem = _currentQueue[_currentQueueIndex];
+			JsonNode prevItem = _currentQueue[_currentQueueIndex];
 			string vid = ((string?)prevItem["videoId"]) ?? "";
 			string title = ((string?)prevItem["title"]) ?? "";
 			string artist = "";
-			if (prevItem["artists"] is JArray { Count: >0 } artistsArr)
+			if (prevItem["artists"] is JsonArray { Count: >0 } artistsArr)
 			{
 				List<string> names = new List<string>();
-				foreach (JToken a in artistsArr)
+				foreach (JsonNode a in artistsArr)
 				{
 					names.Add(((string?)a["name"]) ?? "");
 				}
 				artist = string.Join(", ", names);
 			}
 			string thumbUrl = "";
-			if (prevItem["thumbnails"] is JArray { Count: >0 } thumbs)
+			if (prevItem["thumbnails"] is JsonArray { Count: >0 } thumbs)
 			{
 				thumbUrl = ((string?)thumbs[thumbs.Count - 1]["url"]) ?? "";
 			}
@@ -1438,6 +1472,10 @@ namespace Spectre; public partial class MainWindow {
 		{
 			_pauseRequested = true;
 			_player.Pause();
+			if (_smtc != null)
+			{
+				_smtc.PlaybackStatus = MediaPlaybackStatus.Paused;
+			}
 			base.Dispatcher.InvokeAsync(delegate
 			{
 				FreezeSyllableAnimations();
@@ -1450,11 +1488,19 @@ namespace Spectre; public partial class MainWindow {
 			TaskbarPlayPauseBtn.ImageSource = (ImageSource)FindResource(_pauseRequested ? "ThumbPlayIcon" : "ThumbPauseIcon");
 			TaskbarPlayPauseBtn.Description = (_pauseRequested ? "Play" : "Pause");
 			base.Title = (_pauseRequested ? "Spectre" : (_currentArtist + " - " + _currentTitle));
+			if (_smtc != null)
+			{
+				_smtc.PlaybackStatus = _pauseRequested ? MediaPlaybackStatus.Paused : MediaPlaybackStatus.Playing;
+			}
 		}
 		else if (!string.IsNullOrEmpty(_currentVideoId))
 		{
 			_pauseRequested = false;
 			_player.Resume();
+			if (_smtc != null)
+			{
+				_smtc.PlaybackStatus = MediaPlaybackStatus.Playing;
+			}
 			base.Dispatcher.InvokeAsync(delegate
 			{
 				ResumeSyllableAnimations((long)MainPlayerBarControl.TimelineSliderRef.Value);
@@ -1519,8 +1565,8 @@ namespace Spectre; public partial class MainWindow {
 
 			if (wasMuted != isMuted || MainPlayerBarControl.VolumeIconRef.Source == null)
 			{
-				string path = isMuted ? "Icons/volumemuted.svg" : "Icons/volume.svg";
-				MainPlayerBarControl.VolumeIconRef.Source = new Uri(path, UriKind.Relative);
+				string resourceKey = isMuted ? "volumemutedIcon" : "volumeIcon";
+				MainPlayerBarControl.VolumeIconRef.Source = (ImageSource)System.Windows.Application.Current.FindResource(resourceKey);
 			}
 		}
 	}
@@ -1869,7 +1915,7 @@ namespace Spectre; public partial class MainWindow {
 		});
 	}
 
-	private System.Windows.Media.Brush GetImageBorderBrush(Border imgBorder)
+	private System.Windows.Media.Brush? GetImageBorderBrush(Border imgBorder)
 	{
 		if (imgBorder.Child is Grid grid && grid.Children.Count > 0 && grid.Children[0] is Border innerBorder && innerBorder.Child is System.Windows.Shapes.Rectangle rect)
 		{
@@ -1882,7 +1928,7 @@ namespace Spectre; public partial class MainWindow {
 		return null;
 	}
 
-	private string GetImageBorderUrl(Border imgBorder)
+	private string? GetImageBorderUrl(Border imgBorder)
 	{
 		if (imgBorder.Child is Grid grid && grid.Children.Count > 0 && grid.Children[0] is Border innerBorder && innerBorder.Child is System.Windows.Shapes.Rectangle rect)
 		{
@@ -2062,7 +2108,7 @@ namespace Spectre; public partial class MainWindow {
 						{
 							if (_cachedPlaylists != null)
 							{
-								JObject newPl = new JObject
+								JsonObject newPl = new JsonObject
 								{
 									["playlistId"] = newId,
 									["title"] = title
@@ -2122,3 +2168,10 @@ namespace Spectre; public partial class MainWindow {
 		}
 	}
 }
+
+
+
+
+
+
+

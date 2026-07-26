@@ -78,7 +78,7 @@ public partial class SidebarControl : UserControl
 			}
 	}
 
-	private void CompositionTarget_Rendering(object sender, EventArgs e)
+	private void CompositionTarget_Rendering(object? sender, EventArgs e)
 	{
 		if (!_isVinylStarted || _isVinylPaused)
 		{
@@ -142,7 +142,7 @@ public partial class SidebarControl : UserControl
 		}
 	}
 
-	private ScrollViewer GetScrollViewer(DependencyObject depObj)
+	private ScrollViewer? GetScrollViewer(DependencyObject depObj)
 	{
 		if (depObj is ScrollViewer viewer) return viewer;
 		for (int i = 0; i < System.Windows.Media.VisualTreeHelper.GetChildrenCount(depObj); i++)

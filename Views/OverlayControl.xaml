@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<UserControl x:Class="Spectre.Views.OverlayControl" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:d="http://schemas.microsoft.com/expression/blend/2008" xmlns:local="clr-namespace:Spectre.Views" xmlns:svgc="http://sharpvectors.codeplex.com/svgc/">
+<UserControl x:Class="Spectre.Views.OverlayControl" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:d="http://schemas.microsoft.com/expression/blend/2008" xmlns:local="clr-namespace:Spectre.Views" >
   <Grid>
     <Grid Name="LargeCoverOverlay" Margin="-5,0,0,0" Background="#CC0A0A0E" Visibility="Collapsed" Opacity="0" ZIndex="100" MouseLeftButtonDown="LargeCoverOverlay_MouseLeftButtonDown">
       <Border Name="LargeCoverBorder" Width="680" Height="680" CornerRadius="16" HorizontalAlignment="Center" VerticalAlignment="Center" RenderTransformOrigin="0.5,0.5">
@@ -10,7 +10,7 @@
       </Border>
     </Grid>
     <ProgressBar Name="TopLoadingBar" VerticalAlignment="Top" Height="2" BorderThickness="0" Background="#00FFFFFF" Foreground="{DynamicResource AccentGradient}" IsIndeterminate="True" Visibility="Collapsed" Opacity="0" Panel.ZIndex="100" />
-    <Grid Name="LoadingOverlay" ZIndex="1000" Background="{DynamicResource LoadingOverlayBrush}" ClipToBounds="True">
+    <Grid Name="LoadingOverlay" Visibility="Collapsed" ZIndex="1000" Background="{DynamicResource LoadingOverlayBrush}" ClipToBounds="True">
       <FrameworkElement.Triggers>
         <EventTrigger RoutedEvent="Grid.Loaded">
           <BeginStoryboard x:Name="LoadingStoryboardBegin">
@@ -115,7 +115,7 @@
           </Grid.RowDefinitions>
           <TextBlock Text="Song Credits" Foreground="{DynamicResource TextBrush}" FontSize="22" FontWeight="Bold" Margin="0,0,0,20" />
           <Button Grid.Row="0" HorizontalAlignment="Right" VerticalAlignment="Top" Width="30" Height="30" Margin="0,-5,-5,0" Style="{DynamicResource SettingsButtonStyle}" Padding="0" Click="CloseCreditsBtn_Click">
-            <svgc:SvgViewbox Source="Icons/close.svg" Width="14" Height="14" />
+            <Image Source="{StaticResource closeIcon}" Width="14" Height="14" />
           </Button>
           <ScrollViewer Name="CreditsScrollViewer" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="0,0,-10,0" Padding="0,0,10,0" PreviewMouseWheel="CreditsScrollViewer_PreviewMouseWheel">
             <StackPanel Name="CreditsPanel">
@@ -127,7 +127,7 @@
     </Grid>
     <Grid Name="GlobalErrorOverlay" ZIndex="5000" Visibility="Collapsed" Background="#F20A0A0C">
       <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-        <svgc:SvgViewbox Source="Icons/internet.svg" Width="80" Height="80" Margin="0,0,0,20" HorizontalAlignment="Center" Opacity="0.5" />
+        <Image Source="{StaticResource internetIcon}" Width="80" Height="80" Margin="0,0,0,20" HorizontalAlignment="Center" Opacity="0.5" />
         <TextBlock Name="GlobalErrorTitle" Text="No Internet Connection" Foreground="{DynamicResource TextBrush}" FontSize="20" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,0,0,10" />
         <TextBlock Name="GlobalErrorDetails" Text="Details" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="14" HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" MaxWidth="400" />
         <Border Name="GlobalErrorRetryBtn" Background="#28FFFFFF" CornerRadius="16" Padding="20,8" Margin="0,20,0,0" Cursor="Hand" HorizontalAlignment="Center" MouseEnter="GlobalErrorRetryBtn_MouseEnter" MouseLeave="GlobalErrorRetryBtn_MouseLeave" MouseLeftButtonDown="GlobalErrorRetryBtn_Click">
@@ -169,3 +169,5 @@
     <Canvas Name="ConfettiCanvas" IsHitTestVisible="False" ZIndex="9999" />
   </Grid>
 </UserControl>
+
+

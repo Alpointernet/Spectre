@@ -1,7 +1,6 @@
 using System;
 using System.Windows;
 using System.Windows.Media.Animation;
-using Microsoft.Extensions.DependencyInjection;
 using Spectre.Services;
 using Spectre.ViewModels;
 
@@ -11,10 +10,16 @@ public partial class App : Application
 {
 	public new static App Current => (App)Application.Current;
 
-	public IServiceProvider Services { get; }
+	public IPlaybackService PlaybackService { get; } = new PlaybackService();
+	public IQueueService QueueService { get; } = new QueueService();
+	public MainViewModel MainViewModel { get; } = new MainViewModel();
+	public PlayerBarViewModel PlayerBarViewModel { get; }
+	public QueueViewModel QueueViewModel { get; } = new QueueViewModel();
+	public SidebarViewModel SidebarViewModel { get; } = new SidebarViewModel();
 
 	public App()
 	{
+		PlayerBarViewModel = new PlayerBarViewModel(PlaybackService);
 		try
 		{
 			string profileDir = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Spectre", "Cache");
@@ -23,20 +28,6 @@ public partial class App : Application
 			System.Runtime.ProfileOptimization.StartProfile("Startup.Profile");
 		}
 		catch { }
-
-		Services = ConfigureServices();
-	}
-
-	private static IServiceProvider ConfigureServices()
-	{
-		ServiceCollection services = new ServiceCollection();
-		services.AddSingleton<IPlaybackService, PlaybackService>();
-		services.AddSingleton<IQueueService, QueueService>();
-		services.AddSingleton<MainViewModel>();
-		services.AddSingleton<PlayerBarViewModel>();
-		services.AddSingleton<QueueViewModel>();
-		services.AddSingleton<SidebarViewModel>();
-		return services.BuildServiceProvider();
 	}
 
 	protected override void OnStartup(StartupEventArgs e)

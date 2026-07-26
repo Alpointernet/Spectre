@@ -31,11 +31,10 @@ using System.Windows.Shapes;
 using System.Windows.Shell;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.Messaging;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Win32;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
-using SharpVectors.Converters;
+
+using System.Text.Json.Nodes;
+using System.Text.Json;
 using Spectre.Services;
 using Spectre.ViewModels;
 using Spectre.Views;
@@ -99,9 +98,6 @@ namespace Spectre; public partial class MainWindow {
 		if (currentId == _transitionId)
 		{
 			ContentPanel.Children.Clear();
-			GC.Collect();
-			GC.WaitForPendingFinalizers();
-			GC.Collect();
 		}
 		return currentId;
 	}
@@ -667,10 +663,10 @@ namespace Spectre; public partial class MainWindow {
 		dialogCard.RenderTransform.BeginAnimation(TranslateTransform.YProperty, animMove);
 	}
 
-	private void PopulateArtistLinks(TextBlock tb, string artistString, int fontSize = 12, JArray? artistsData = null)
+	private void PopulateArtistLinks(TextBlock tb, string artistString, int fontSize = 12, JsonArray? artistsData = null)
 	{
 		tb.Inlines.Clear();
-		string[] names = artistString.Split(new char[1] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+		string[] names = (artistString ?? "").Split(new char[1] { ',' }, StringSplitOptions.RemoveEmptyEntries);
 		for (int i = 0; i < names.Length; i++)
 		{
 			string aName = names[i].Trim();
@@ -681,12 +677,12 @@ namespace Spectre; public partial class MainWindow {
 			string exactArtistId = null;
 			if (artistsData != null)
 			{
-				foreach (JToken a in artistsData)
+				foreach (JsonNode a in artistsData)
 				{
-					string jName = (string?)a["name"];
+					string jName = (string?)a?["name"];
 					if (jName != null && aName.Equals(jName.Trim(), StringComparison.OrdinalIgnoreCase))
 					{
-						exactArtistId = ((string?)a["id"]) ?? ((string?)a["browseId"]);
+						exactArtistId = ((string?)a?["id"]) ?? ((string?)a?["browseId"]);
 						break;
 					}
 				}
@@ -730,13 +726,13 @@ namespace Spectre; public partial class MainWindow {
 				}
 				try
 				{
-					if ((await BackendService.Instance.SearchAsync(aName, CancellationToken.None))["data"] is JObject data && data["artists"] is JArray { Count: >0 } artists)
+					if ((await BackendService.Instance.SearchAsync(aName, CancellationToken.None))["data"] is JsonObject data && data["artists"] is JsonArray { Count: >0 } artists)
 					{
-						JToken jToken = artists[0];
-						string id = ((string?)jToken["browseId"]) ?? "";
-						string n = ((string?)jToken["artist"]) ?? "";
+						JsonNode JsonNode = artists[0];
+						string id = ((string?)JsonNode["browseId"]) ?? "";
+						string n = ((string?)JsonNode["artist"]) ?? "";
 						string thumb = "";
-						if (jToken["thumbnails"] is JArray { Count: >0 } thumbs)
+						if (JsonNode["thumbnails"] is JsonArray { Count: >0 } thumbs)
 						{
 							thumb = ((string?)thumbs[thumbs.Count - 1]["url"]) ?? "";
 						}
@@ -808,18 +804,18 @@ namespace Spectre; public partial class MainWindow {
 		return thumbUrl;
 	}
 
-	private void PrefetchThumbnail(JToken item)
+	private void PrefetchThumbnail(JsonNode item)
 	{
 		try
 		{
 			string url = "";
-			JArray thumbs = (item["thumbnails"] as JArray) ?? (item["thumbnail"] as JArray);
+			JsonArray thumbs = (item["thumbnails"] as JsonArray) ?? (item["thumbnail"] as JsonArray);
 			if (thumbs == null)
 			{
-				JToken thumbObj = item["thumbnail"];
-				if (thumbObj != null && thumbObj.Type == JTokenType.Object)
+				JsonNode thumbObj = item["thumbnail"];
+				if (thumbObj != null && thumbObj is JsonObject)
 				{
-					thumbs = thumbObj["thumbnails"] as JArray;
+					thumbs = thumbObj["thumbnails"] as JsonArray;
 				}
 			}
 			if (thumbs != null && thumbs.Count > 0)
@@ -849,7 +845,7 @@ namespace Spectre; public partial class MainWindow {
 						bmp.EndInit();
 					}
 					bmp.Freeze();
-					if (_imageCache.Count > 500)
+					if (_imageCache.Count > 100)
 					{
 						_imageCache.Clear();
 					}
@@ -937,9 +933,12 @@ namespace Spectre; public partial class MainWindow {
 			}
 			double scrollTop = MainScrollViewer.VerticalOffset;
 			double scrollBottom = scrollTop + MainScrollViewer.ViewportHeight;
-			scrollBottom += 2500.0;
-			scrollTop -= 2500.0;
+			// Do not build several screens of controls in one dispatcher pass. It is
+			// visually invisible but can monopolize the UI thread during scrolling.
+			scrollBottom += 1200.0;
+			scrollTop -= 1200.0;
 			bool anyRendered = false;
+			int renderedThisPass = 0;
 			GeneralTransform transform = null;
 			try
 			{
@@ -962,12 +961,13 @@ namespace Spectre; public partial class MainWindow {
 				Border border = _lazyVirtualizationElements[i];
 				double itemHeight = ((border.Height > 0.0) ? border.Height : ((border.ActualHeight > 0.0) ? border.ActualHeight : 70.0));
 				bool inView = currentY < scrollBottom && currentY + itemHeight > scrollTop;
-				if (inView && border.Child == null)
+				if (inView && border.Child == null && renderedThisPass < 4)
 				{
 					if (border.Tag is UIElement cachedElement)
 					{
 						border.Child = cachedElement;
 						anyRendered = true;
+						renderedThisPass++;
 					}
 					else if (!(border.Tag is string t && t == "loading"))
 					{
@@ -978,6 +978,7 @@ namespace Spectre; public partial class MainWindow {
 							border.Tag = newEl;
 							border.Child = newEl;
 							anyRendered = true;
+							renderedThisPass++;
 						}
 					}
 				}
@@ -986,6 +987,10 @@ namespace Spectre; public partial class MainWindow {
 			if (anyRendered && !string.IsNullOrEmpty(_currentVideoId))
 			{
 				HighlightNowPlaying(_currentVideoId);
+			}
+			if (renderedThisPass == 4)
+			{
+				base.Dispatcher.InvokeAsync(CheckVisibilityOfLazyElements, DispatcherPriority.ContextIdle);
 			}
 		}
 		if (_lazyRenderElements.Count == 0)
@@ -1182,11 +1187,6 @@ namespace Spectre; public partial class MainWindow {
 	{
 		if (border.IsMouseOver)
 		{
-			if (border.BorderThickness.Top == 0.0)
-			{
-				border.BorderThickness = new Thickness(1.0);
-				border.Padding = new Thickness(Math.Max(0.0, border.Padding.Left - 1.0), Math.Max(0.0, border.Padding.Top - 1.0), Math.Max(0.0, border.Padding.Right - 1.0), Math.Max(0.0, border.Padding.Bottom - 1.0));
-			}
 			FadeBorderBrushToColor(border, _hoverBorderColor);
 		}
 		else
@@ -1224,10 +1224,7 @@ namespace Spectre; public partial class MainWindow {
 	{
 		if (border.IsMouseOver)
 		{
-			if (border.BorderThickness.Top == 0.0)
 			{
-				border.BorderThickness = new Thickness(1.0);
-				border.Padding = new Thickness(Math.Max(0.0, border.Padding.Left - 1.0), Math.Max(0.0, border.Padding.Top - 1.0), Math.Max(0.0, border.Padding.Right - 1.0), Math.Max(0.0, border.Padding.Bottom - 1.0));
 			}
 			FadeBorderBrushToColor(border, _hoverBorderColor);
 		}
@@ -1419,7 +1416,7 @@ namespace Spectre; public partial class MainWindow {
 		}
 	}
 
-	private void AnimateCollapse(FrameworkElement element, bool collapse)
+	private void AnimateCollapse(FrameworkElement element, bool collapse, bool instant = false)
 	{
 		Transform layoutTransform = element.LayoutTransform;
 		ScaleTransform st = layoutTransform as ScaleTransform;
@@ -1427,6 +1424,22 @@ namespace Spectre; public partial class MainWindow {
 		{
 			st = new ScaleTransform(1.0, 1.0);
 			element.LayoutTransform = st;
+		}
+		if (instant)
+		{
+			if (collapse)
+			{
+				element.Visibility = Visibility.Collapsed;
+				element.Opacity = 0.0;
+				st.ScaleY = 0.0;
+			}
+			else
+			{
+				element.Visibility = Visibility.Visible;
+				element.Opacity = 1.0;
+				st.ScaleY = 1.0;
+			}
+			return;
 		}
 		if (collapse)
 		{
@@ -1538,6 +1551,10 @@ namespace Spectre; public partial class MainWindow {
 			};
 			border.ContextMenu = CreateCollectionContextMenu(id, title, type, border, titleTxt);
 		}
+		if (!string.IsNullOrEmpty(_currentVideoId) && id == _currentVideoId)
+		{
+			HighlightInPanel(border, _currentVideoId);
+		}
 		return border;
 	}
 
@@ -1611,7 +1628,7 @@ namespace Spectre; public partial class MainWindow {
 					{
 						try
 						{
-							if (_imageCache.Count > 500)
+							if (_imageCache.Count > 100)
 							{
 								_imageCache.Clear();
 							}
@@ -1623,7 +1640,7 @@ namespace Spectre; public partial class MainWindow {
 						catch
 						{
 						}
-					});
+					}, DispatcherPriority.Background);
 				}
 				catch
 				{
@@ -1669,7 +1686,7 @@ namespace Spectre; public partial class MainWindow {
 		return obj;
 	}
 
-	private UIElement CreateTrackCard(string videoId, string title, string artist, string thumbUrl, string type = "Song", JArray? artistsData = null, JObject? albumData = null)
+	private UIElement CreateTrackCard(string videoId, string title, string artist, string thumbUrl, string type = "Song", JsonArray? artistsData = null, JsonObject? albumData = null)
 	{
 		Border border = new Border
 		{
@@ -1827,6 +1844,10 @@ namespace Spectre; public partial class MainWindow {
 		{
 			border.ContextMenu = CreateCollectionContextMenu(videoId, title, type, border);
 		}
+		if (!string.IsNullOrEmpty(_currentVideoId) && videoId == _currentVideoId)
+		{
+			HighlightInPanel(border, _currentVideoId);
+		}
 		return new Viewbox
 		{
 			Stretch = Stretch.Uniform,
@@ -1836,7 +1857,7 @@ namespace Spectre; public partial class MainWindow {
 		};
 	}
 
-	private UIElement CreateHeroHeader(List<(string videoId, string title, string artist, string thumbUrl, JArray? artistsData)> items)
+	private UIElement CreateHeroHeader(List<(string videoId, string title, string artist, string thumbUrl, JsonArray? artistsData)> items)
 	{
 		if (items == null || items.Count == 0)
 		{
@@ -1915,7 +1936,7 @@ namespace Spectre; public partial class MainWindow {
 		return containerGrid;
 	}
 
-	private Border CreateHeroCard((string videoId, string title, string artist, string thumbUrl, JArray? artistsData) data, bool isLarge)
+	private Border CreateHeroCard((string videoId, string title, string artist, string thumbUrl, JsonArray? artistsData) data, bool isLarge)
 	{
 		Border border = new Border
 		{
@@ -2032,10 +2053,7 @@ namespace Spectre; public partial class MainWindow {
 		border.Child = grid;
 		border.MouseEnter += delegate
 		{
-			if (border.BorderThickness.Top == 0.0)
 			{
-				border.BorderThickness = new Thickness(1.0);
-				border.Padding = new Thickness(Math.Max(0.0, border.Padding.Left - 1.0), Math.Max(0.0, border.Padding.Top - 1.0), Math.Max(0.0, border.Padding.Right - 1.0), Math.Max(0.0, border.Padding.Bottom - 1.0));
 			}
 			FadeBorderBrushToColor(border, _hoverBorderColor);
 			hoverOverlay.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation(0.03, TimeSpan.FromMilliseconds(250.0))
@@ -2057,10 +2075,14 @@ namespace Spectre; public partial class MainWindow {
 				}
 			});
 		};
+		if (!string.IsNullOrEmpty(_currentVideoId) && data.videoId == _currentVideoId)
+		{
+			HighlightInPanel(border, _currentVideoId);
+		}
 		return border;
 	}
 
-	private Border CreateTrackTile(string id, string title, string artist, string thumbUrl, string type = "Song", JArray? artistsData = null)
+	private Border CreateTrackTile(string id, string title, string artist, string thumbUrl, string type = "Song", JsonArray? artistsData = null)
 	{
 		Border border = new Border
 		{
@@ -2229,10 +2251,14 @@ namespace Spectre; public partial class MainWindow {
 				border.ContextMenu.IsOpen = true;
 			}
 		};
+		if (!string.IsNullOrEmpty(_currentVideoId) && id == _currentVideoId)
+		{
+			HighlightInPanel(border, _currentVideoId);
+		}
 		return border;
 	}
 
-	private Border CreateTrackRow(string videoId, string title, string artist, string thumbUrl, string trackNumber = "", string album = "", string albumId = "", string duration = "", string contextPlaylistId = "", JArray? queueContext = null, int queueIndex = -1, string setVideoId = "", bool hideLikedToggle = false, Action onPlay = null, JArray? artistsData = null, string displayAlbum = null)
+	private Border CreateTrackRow(string videoId, string title, string artist, string thumbUrl, string trackNumber = "", string album = "", string albumId = "", string duration = "", string contextPlaylistId = "", JsonArray? queueContext = null, int queueIndex = -1, string setVideoId = "", bool hideLikedToggle = false, Action onPlay = null, JsonArray? artistsData = null, string displayAlbum = null)
 	{
 		Border border = new Border
 		{
@@ -2427,14 +2453,14 @@ namespace Spectre; public partial class MainWindow {
 			e.Handled = true;
 			if (queueContext != null && queueIndex >= 0)
 			{
-				InitQueueAndShuffle(new JArray(queueContext), queueIndex);
+				InitQueueAndShuffle((System.Text.Json.Nodes.JsonArray)queueContext.DeepClone(), queueIndex);
 			}
 			onPlay?.Invoke();
 			Border loadingOverlay = CreateLoadingWaveOverlay(10.0);
 			Grid.SetColumnSpan(loadingOverlay, (grid.ColumnDefinitions.Count <= 0) ? 1 : grid.ColumnDefinitions.Count);
 			grid.Children.Insert(0, loadingOverlay);
 			ShowLoadingOverlay(loadingOverlay);
-			JObject albumData = new JObject
+			JsonObject albumData = new JsonObject
 			{
 				["name"] = album,
 				["id"] = albumId
@@ -2460,6 +2486,10 @@ namespace Spectre; public partial class MainWindow {
 			}
 			border.ContextMenu.IsOpen = true;
 		};
+		if (!string.IsNullOrEmpty(_currentVideoId) && videoId == _currentVideoId)
+		{
+			HighlightInPanel(border, _currentVideoId);
+		}
 		return border;
 	}
 
@@ -2543,9 +2573,9 @@ namespace Spectre; public partial class MainWindow {
 			{
 				Width = new GridLength(60.0)
 			});
-			SvgViewbox durIcon = new SvgViewbox
+			System.Windows.Controls.Image durIcon = new System.Windows.Controls.Image
 			{
-				Source = new Uri("Icons/clock.svg", UriKind.Relative),
+				Source = (System.Windows.Media.DrawingImage)System.Windows.Application.Current.FindResource("clockIcon"),
 				Width = 14.0,
 				Height = 14.0,
 				VerticalAlignment = VerticalAlignment.Center,
@@ -2591,9 +2621,9 @@ namespace Spectre; public partial class MainWindow {
 			{
 				if (_currentQueue == null || _currentQueue.Count == 0)
 				{
-					_currentQueue = new JArray();
+					_currentQueue = new JsonArray();
 				}
-				JObject item = new JObject
+				JsonObject item = new JsonObject
 				{
 					["videoId"] = videoId,
 					["title"] = title,
@@ -2623,9 +2653,9 @@ namespace Spectre; public partial class MainWindow {
 			{
 				if (_currentQueue == null || _currentQueue.Count == 0)
 				{
-					_currentQueue = new JArray();
+					_currentQueue = new JsonArray();
 				}
-				JObject item = new JObject
+				JsonObject item = new JsonObject
 				{
 					["videoId"] = videoId,
 					["title"] = title,
@@ -3215,16 +3245,37 @@ namespace Spectre; public partial class MainWindow {
 			return new IntPtr(1);
 		case 132:
 		{
-			int y = (int)(((IntPtr)lParam).ToInt64() >> 16);
-			if (GetWindowRect(hwnd, out var rect) && y >= rect.Top && y < rect.Top + 60)
+			try
 			{
-				int x = (int)(((IntPtr)lParam).ToInt64() & 0xFFFF);
-				if (x >= rect.Left + 800 && x <= rect.Right - 150)
+				int lParamInt = unchecked((int)lParam.ToInt64());
+				int x = (short)(lParamInt & 0xFFFF);
+				int y = (short)((lParamInt >> 16) & 0xFFFF);
+				System.Windows.Point screenPoint = new System.Windows.Point(x, y);
+				System.Windows.Point clientPoint = PointFromScreen(screenPoint);
+
+				if (clientPoint.Y <= 60 && clientPoint.Y >= 6 && clientPoint.X >= 6 && clientPoint.X <= ActualWidth - 6)
 				{
+					IInputElement hit = InputHitTest(clientPoint);
+					if (hit != null && hit is DependencyObject hitObject)
+					{
+						DependencyObject parent = hitObject;
+						while (parent != null)
+						{
+							if ((bool)parent.GetValue(System.Windows.Shell.WindowChrome.IsHitTestVisibleInChromeProperty))
+							{
+								handled = true;
+								return new IntPtr(1); // HTCLIENT
+							}
+							parent = System.Windows.Media.VisualTreeHelper.GetParent(parent);
+						}
+					}
+					
+					// If we didn't hit an interactive element, allow dragging
 					handled = true;
-					return new IntPtr(2);
+					return new IntPtr(2); // HTCAPTION
 				}
 			}
+			catch { }
 			break;
 		}
 		}
@@ -3314,26 +3365,26 @@ namespace Spectre; public partial class MainWindow {
 		}
 	}
 
-	private void UpdateTabVisibility()
+	private void UpdateTabVisibility(bool instant = false)
 	{
 		bool isLoggedIn = System.IO.File.Exists(BackendService.AuthFilePath);
 		MainSidebar.HomeNavBorderRef.Visibility = ((!isLoggedIn) ? Visibility.Collapsed : Visibility.Visible);
-		AnimateCollapse(MainSidebar.ExploreNavBorderRef, _blockedCategories.Contains("Tab: Explore"));
+		AnimateCollapse(MainSidebar.ExploreNavBorderRef, _blockedCategories.Contains("Tab: Explore"), instant);
 		if (_groupLibraryTabs)
 		{
-			AnimateCollapse(MainSidebar.PlaylistsNavBorderRef, _blockedCategories.Contains("Tab: Playlists"));
-			AnimateCollapse(MainSidebar.AlbumsNavBorderRef, _blockedCategories.Contains("Tab: Albums"));
-			AnimateCollapse(MainSidebar.RadioNavBorderRef, _blockedCategories.Contains("Tab: Radio"));
-			AnimateCollapse(MainSidebar.LocalNavBorderRef, !_enableLocalMusic || _blockedCategories.Contains("Tab: Local"));
-			AnimateCollapse(MainSidebar.StatsNavBorderRef, _blockedCategories.Contains("Tab: Stats"));
+			AnimateCollapse(MainSidebar.PlaylistsNavBorderRef, _blockedCategories.Contains("Tab: Playlists"), instant);
+			AnimateCollapse(MainSidebar.AlbumsNavBorderRef, _blockedCategories.Contains("Tab: Albums"), instant);
+			AnimateCollapse(MainSidebar.RadioNavBorderRef, _blockedCategories.Contains("Tab: Radio"), instant);
+			AnimateCollapse(MainSidebar.LocalNavBorderRef, !_enableLocalMusic || _blockedCategories.Contains("Tab: Local"), instant);
+			AnimateCollapse(MainSidebar.StatsNavBorderRef, _blockedCategories.Contains("Tab: Stats"), instant);
 		}
 		else
 		{
-			AnimateCollapse(MainSidebar.PlaylistsNavBorderRef, collapse: true);
-			AnimateCollapse(MainSidebar.AlbumsNavBorderRef, collapse: true);
-			AnimateCollapse(MainSidebar.RadioNavBorderRef, _blockedCategories.Contains("Tab: Radio"));
-			AnimateCollapse(MainSidebar.LocalNavBorderRef, !_enableLocalMusic || _blockedCategories.Contains("Tab: Local"));
-			AnimateCollapse(MainSidebar.StatsNavBorderRef, _blockedCategories.Contains("Tab: Stats"));
+			AnimateCollapse(MainSidebar.PlaylistsNavBorderRef, collapse: true, instant);
+			AnimateCollapse(MainSidebar.AlbumsNavBorderRef, collapse: true, instant);
+			AnimateCollapse(MainSidebar.RadioNavBorderRef, _blockedCategories.Contains("Tab: Radio"), instant);
+			AnimateCollapse(MainSidebar.LocalNavBorderRef, !_enableLocalMusic || _blockedCategories.Contains("Tab: Local"), instant);
+			AnimateCollapse(MainSidebar.StatsNavBorderRef, _blockedCategories.Contains("Tab: Stats"), instant);
 		}
 	}
 
@@ -3396,7 +3447,7 @@ namespace Spectre; public partial class MainWindow {
 		UpdateLyricsIcon();
 	}
 
-	private (UIElement, System.Windows.Controls.Panel) CreateExpandableSection(string title, int itemCount = 999, Action onExpand = null)
+	private (UIElement, System.Windows.Controls.Panel) CreateExpandableSection(string title, int itemCount = 999, Action onExpand = null, int maxRows = 2)
 	{
 		StackPanel container = new StackPanel
 		{
@@ -3482,9 +3533,9 @@ namespace Spectre; public partial class MainWindow {
 		};
 		TranslateTransform textTransform = new TranslateTransform(0.0, 0.0);
 		seeAllBtn.RenderTransform = textTransform;
-		SvgViewbox arrowIcon = new SvgViewbox
+		System.Windows.Controls.Image arrowIcon = new System.Windows.Controls.Image
 		{
-			Source = new Uri("Icons/rightarrow.svg", UriKind.Relative),
+			Source = (System.Windows.Media.DrawingImage)System.Windows.Application.Current.FindResource("rightarrowIcon"),
 			Width = 14.0,
 			Height = 14.0,
 			VerticalAlignment = VerticalAlignment.Center,
@@ -3505,11 +3556,12 @@ namespace Spectre; public partial class MainWindow {
 				{
 					wp.Columns = num;
 				}
-				seeAllContainer.Visibility = ((itemCount <= num) ? Visibility.Collapsed : Visibility.Visible);
+				int rowsToShow = Math.Min(maxRows, (itemCount >= num * 2) ? 2 : 1);
+				seeAllContainer.Visibility = ((itemCount <= num * rowsToShow) ? Visibility.Collapsed : Visibility.Visible);
 				if (!isExpanded)
 				{
 					double num2 = e.NewSize.Width / (double)num;
-					wpContainer.MaxHeight = num2 * 1.2705882352941176;
+					wpContainer.MaxHeight = num2 * 1.2705882352941176 * rowsToShow;
 				}
 			}
 		};
@@ -3598,7 +3650,9 @@ namespace Spectre; public partial class MainWindow {
 			else
 			{
 				isExpanded = false;
-				double toValue = wp.ActualWidth / (double)wp.Columns * 1.2705882352941176;
+				double rowHeight = wp.ActualWidth / (double)wp.Columns * 1.2705882352941176;
+				int rowsToShow = Math.Min(maxRows, (itemCount >= wp.Columns * 2) ? 2 : 1);
+				double toValue = rowHeight * rowsToShow;
 				DoubleAnimation animation = new DoubleAnimation(wpContainer.ActualHeight, toValue, TimeSpan.FromMilliseconds(450.0))
 				{
 					EasingFunction = new QuarticEase
@@ -3718,9 +3772,9 @@ namespace Spectre; public partial class MainWindow {
 		};
 		TranslateTransform textTransform = new TranslateTransform(0.0, 0.0);
 		seeAllBtn.RenderTransform = textTransform;
-		SvgViewbox arrowIcon = new SvgViewbox
+		System.Windows.Controls.Image arrowIcon = new System.Windows.Controls.Image
 		{
-			Source = new Uri("Icons/rightarrow.svg", UriKind.Relative),
+			Source = (System.Windows.Media.DrawingImage)System.Windows.Application.Current.FindResource("rightarrowIcon"),
 			Width = 14.0,
 			Height = 14.0,
 			VerticalAlignment = VerticalAlignment.Center,
@@ -3730,12 +3784,18 @@ namespace Spectre; public partial class MainWindow {
 		};
 		seeAllContainer.Children.Add(seeAllBtn);
 		seeAllContainer.Children.Add(arrowIcon);
+		bool isLoaded = false;
+		bool isExpanded = false;
 		grid.SizeChanged += delegate(object s, SizeChangedEventArgs e)
 		{
 			int num = Math.Max(1, (int)(e.NewSize.Width / 260.0));
-			int num2 = Math.Max(1, (int)(collapsedHeight / 90.0));
-			int num3 = num * num2;
+			int rowsToShow = (itemCount >= num * 2) ? 2 : 1;
+			int num3 = num * rowsToShow;
 			seeAllContainer.Visibility = ((itemCount <= num3) ? Visibility.Collapsed : Visibility.Visible);
+			if (!isExpanded)
+			{
+				border.MaxHeight = rowsToShow * 90.0;
+			}
 		};
 		seeAllContainer.MouseEnter += delegate
 		{
@@ -3773,8 +3833,6 @@ namespace Spectre; public partial class MainWindow {
 				}
 			});
 		};
-		bool isLoaded = false;
-		bool isExpanded = false;
 		seeAllContainer.MouseLeftButtonDown += delegate
 		{
 			if (!isExpanded)
@@ -3823,7 +3881,9 @@ namespace Spectre; public partial class MainWindow {
 			else
 			{
 				isExpanded = false;
-				double toValue = collapsedHeight;
+				int num = Math.Max(1, (int)(grid.ActualWidth / 260.0));
+				int rowsToShow = (itemCount >= num * 2) ? 2 : 1;
+				double toValue = rowsToShow * 90.0;
 				DoubleAnimation animation = new DoubleAnimation(border.ActualHeight, toValue, TimeSpan.FromMilliseconds(450.0))
 				{
 					EasingFunction = new QuarticEase
@@ -3860,3 +3920,11 @@ namespace Spectre; public partial class MainWindow {
 		return (container, grid);
 	}
 }
+
+
+
+
+
+
+
+

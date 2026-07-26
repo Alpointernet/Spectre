@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using Newtonsoft.Json.Linq;
+using System.Text.Json.Nodes;
 
 namespace Spectre.Services;
 
@@ -8,7 +8,7 @@ public class QueueService : IQueueService
 {
 	private Random _rand = new Random();
 
-	public JArray CurrentQueue { get; set; } = new JArray();
+	public JsonArray CurrentQueue { get; set; } = new JsonArray();
 
 	public int CurrentQueueIndex { get; set; } = -1;
 
@@ -26,17 +26,21 @@ public class QueueService : IQueueService
 		int endIndex = ((OriginalQueueSize > 1) ? (Math.Min(OriginalQueueSize, CurrentQueue.Count) - 1) : (CurrentQueue.Count - 1));
 		if (endIndex > startIndex)
 		{
-			List<JToken> listToSort = new List<JToken>();
+			List<JsonNode> listToSort = new List<JsonNode>();
 			for (int i = startIndex; i <= endIndex; i++)
 			{
 				listToSort.Add(CurrentQueue[i]);
 			}
-			listToSort.Sort(delegate(JToken a, JToken b)
+			listToSort.Sort(delegate(JsonNode a, JsonNode b)
 			{
-				int num = ((a["originalIndex"] != null && a["originalIndex"].Type == JTokenType.Integer) ? ((int)a["originalIndex"]) : int.MaxValue);
-				int value = ((b["originalIndex"] != null && b["originalIndex"].Type == JTokenType.Integer) ? ((int)b["originalIndex"]) : int.MaxValue);
+				int num = a?["originalIndex"]?.GetValue<int>() ?? int.MaxValue;
+				int value = b?["originalIndex"]?.GetValue<int>() ?? int.MaxValue;
 				return num.CompareTo(value);
 			});
+			for (int i = startIndex; i <= endIndex; i++)
+			{
+				CurrentQueue[i] = null;
+			}
 			for (int i2 = 0; i2 < listToSort.Count; i2++)
 			{
 				CurrentQueue[startIndex + i2] = listToSort[i2];
@@ -44,11 +48,11 @@ public class QueueService : IQueueService
 		}
 	}
 
-	public void InitQueueAndShuffle(JArray newQueue, int newIndex)
+	public void InitQueueAndShuffle(JsonArray newQueue, int newIndex)
 	{
 		for (int i = 0; i < newQueue.Count; i++)
 		{
-			if (newQueue[i] is JObject obj)
+			if (newQueue[i] is JsonObject obj)
 			{
 				obj["originalIndex"] = i;
 			}
@@ -75,9 +79,14 @@ public class QueueService : IQueueService
 			for (int i = endIndex; i > startIndex; i--)
 			{
 				int j = _rand.Next(startIndex, i + 1);
-				JToken temp = CurrentQueue[i];
-				CurrentQueue[i] = CurrentQueue[j];
-				CurrentQueue[j] = temp;
+				JsonNode tempI = CurrentQueue[i];
+				JsonNode tempJ = CurrentQueue[j];
+				CurrentQueue[i] = null;
+				if (i != j) {
+					CurrentQueue[j] = null;
+				}
+				CurrentQueue[i] = tempJ;
+				CurrentQueue[j] = tempI;
 			}
 		}
 	}
@@ -104,7 +113,7 @@ public class QueueService : IQueueService
 		}
 		for (int i = 0; i < CurrentQueue.Count; i++)
 		{
-			if ((string?)CurrentQueue[i]["videoId"] == videoId)
+			if ((string?)CurrentQueue[i]?["videoId"] == videoId)
 			{
 				return i;
 			}

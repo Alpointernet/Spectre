@@ -1,352 +1,294 @@
 using System;
-using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using LibVLCSharp.Shared;
+using Windows.Media.Core;
+using Windows.Media.Playback;
+using Windows.Foundation;
 
 namespace Spectre;
 
 public class AudioEngine : IDisposable
 {
-	private const string HttpUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
-
-	private LibVLC _libvlc;
-
-	private MediaPlayer _player1;
-
-	private MediaPlayer _player2;
-
-	private Media? _player1Media;
-
-	private Media? _player2Media;
-
-	private bool _usePlayer1 = true;
-
+	// Three players deliberately bound the warm playback set to current, previous,
+	// and next.  They are paused when idle, so this avoids an unbounded cache while
+	// making both directions of normal queue navigation immediate.
+	private readonly MediaPlayer?[] _players = new MediaPlayer?[3];
+	private readonly bool[] _hasStarted = new bool[3];
+	private readonly string?[] _playerUrls = new string?[3];
+	private int _activeIndex;
+	private int _previousIndex = -1;
+	private string? _previousUrl;
+	private int _preparedIndex = -1;
+	private string? _preparedUrl;
+	private bool _preparedIsReady;
+	private int _prepareGeneration;
 	private bool _isCrossfading;
-
+	private bool _warmDecodersEnabled;
 	private CancellationTokenSource? _fadeCts;
-
 	private int _targetVolume = 100;
 
-	private int _networkCacheMs;
-
-	private MediaPlayer ActivePlayer
-	{
-		get
-		{
-			if (!_usePlayer1)
-			{
-				return _player2;
-			}
-			return _player1;
-		}
-	}
-
-	private MediaPlayer FadingPlayer
-	{
-		get
-		{
-			if (!_usePlayer1)
-			{
-				return _player1;
-			}
-			return _player2;
-		}
-	}
+	private MediaPlayer? ActivePlayer => _players[_activeIndex];
 
 	public int CrossfadeMs { get; set; }
-
+	public bool WarmDecodersEnabled
+	{
+		get => _warmDecodersEnabled;
+		set
+		{
+			if (_warmDecodersEnabled == value) return;
+			_warmDecodersEnabled = value;
+			if (!value) ReleaseWarmPlayers();
+		}
+	}
 	public int Volume
 	{
-		get
-		{
-			return _targetVolume;
-		}
+		get => _targetVolume;
 		set
 		{
 			_targetVolume = value;
-			if (!_isCrossfading)
-			{
-				ActivePlayer.Volume = (int)((double)value * 0.8);
-			}
+			if (!_isCrossfading && ActivePlayer != null)
+				ActivePlayer.Volume = value / 100.0 * 0.8;
 		}
 	}
 
 	public long Time
 	{
-		get
-		{
-			return ActivePlayer.Time;
-		}
-		set
-		{
-			ActivePlayer.Time = value;
-		}
+		get => (long)(ActivePlayer?.PlaybackSession.Position.TotalMilliseconds ?? 0);
+		set { if (ActivePlayer != null) ActivePlayer.PlaybackSession.Position = TimeSpan.FromMilliseconds(value); }
 	}
-
 	public float Position
 	{
 		get
 		{
-			return ActivePlayer.Position;
+			if (ActivePlayer == null) return 0;
+			double duration = ActivePlayer.PlaybackSession.NaturalDuration.TotalMilliseconds;
+			return duration <= 0 ? 0 : (float)(Time / duration);
 		}
 		set
 		{
-			ActivePlayer.Position = value;
+			if (ActivePlayer != null && ActivePlayer.PlaybackSession.NaturalDuration.TotalMilliseconds > 0)
+				Time = (long)(value * ActivePlayer.PlaybackSession.NaturalDuration.TotalMilliseconds);
 		}
 	}
-
-	public long Length => ActivePlayer.Length;
-
-	public bool IsPlaying => ActivePlayer.IsPlaying;
-
+	public long Length => (long)(ActivePlayer?.PlaybackSession.NaturalDuration.TotalMilliseconds ?? 0);
+	public bool IsPlaying => ActivePlayer?.PlaybackSession.PlaybackState == MediaPlaybackState.Playing;
 	public event EventHandler? EndReached;
-
 	public event EventHandler? Playing;
-
 	public event EventHandler? Paused;
 
 	public AudioEngine(bool loudnessNormalization = false, int networkCacheMs = 250)
 	{
-		_networkCacheMs = networkCacheMs;
-		Core.Initialize();
-		string[] options = new string[4]
-		{
-			$"--network-caching={networkCacheMs}",
-			"--no-video",
-			"--aout=directsound",
-			"--http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-		};
-		if (loudnessNormalization)
-		{
-			options = new string[12]
-			{
-				$"--network-caching={networkCacheMs}",
-				"--no-video",
-				"--aout=directsound",
-				"--http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-				"--audio-filter=compressor",
-				"--compressor-rms-peak=0.1",
-				"--compressor-attack=15.0",
-				"--compressor-release=300.0",
-				"--compressor-threshold=-14.0",
-				"--compressor-ratio=3.0",
-				"--compressor-knee=6.0",
-				"--compressor-makeup-gain=2.0"
-			};
-		}
-		_libvlc = new LibVLC(options);
-		_player1 = new MediaPlayer(_libvlc);
-		_player2 = new MediaPlayer(_libvlc);
-		_player1.Volume = (int)((double)_targetVolume * 0.8);
-		_player2.Volume = (int)((double)_targetVolume * 0.8);
-		_player1.EndReached += delegate
-		{
-			if (_usePlayer1)
-			{
-				this.EndReached?.Invoke(this, EventArgs.Empty);
-			}
-		};
-		_player1.Playing += delegate
-		{
-			if (_usePlayer1)
-			{
-				this.Playing?.Invoke(this, EventArgs.Empty);
-			}
-		};
-		_player1.Paused += delegate
-		{
-			if (_usePlayer1)
-			{
-				this.Paused?.Invoke(this, EventArgs.Empty);
-			}
-		};
-		_player2.EndReached += delegate
-		{
-			if (!_usePlayer1)
-			{
-				this.EndReached?.Invoke(this, EventArgs.Empty);
-			}
-		};
-		_player2.Playing += delegate
-		{
-			if (!_usePlayer1)
-			{
-				this.Playing?.Invoke(this, EventArgs.Empty);
-			}
-		};
-		_player2.Paused += delegate
-		{
-			if (!_usePlayer1)
-			{
-				this.Paused?.Invoke(this, EventArgs.Empty);
-			}
-		};
+		for (int i = 0; i < _players.Length; i++) _players[i] = CreatePlayer(i);
 	}
 
-	private void SetPlayerMedia(MediaPlayer player, Media? media)
+	private MediaPlayer CreatePlayer(int index)
 	{
-		if (player == _player1)
+		MediaPlayer player = new MediaPlayer { Volume = _targetVolume / 100.0 * 0.8 };
+		player.CommandManager.IsEnabled = false;
+		player.MediaEnded += (s, e) =>
 		{
-			_player1Media?.Dispose();
-			_player1Media = media;
-		}
-		else
+			if (_activeIndex == index && _hasStarted[index]) EndReached?.Invoke(this, EventArgs.Empty);
+		};
+		player.MediaFailed += (s, e) =>
 		{
-			_player2Media?.Dispose();
-			_player2Media = media;
-		}
-	}
-
-	private Media? GetCurrentMedia(MediaPlayer player)
-	{
-		if (player != _player1)
+			AppLogger.Log($"AudioEngine: MediaPlayer {index + 1} reported a media failure.", LogLevel.Error);
+			if (_preparedIndex == index)
+			{
+				_preparedIsReady = false;
+				_preparedUrl = null;
+			}
+		};
+		player.PlaybackSession.PlaybackStateChanged += (s, e) =>
 		{
-			return _player2Media;
-		}
-		return _player1Media;
-	}
-
-	private void AppendVlcLog(string message)
-	{
-		try
-		{
-			File.AppendAllText(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Spectre", "vlc_log.txt"), message);
-		}
-		catch
-		{
-		}
+			if (_activeIndex != index) return;
+			if (s.PlaybackState == MediaPlaybackState.Playing)
+			{
+				_hasStarted[index] = true;
+				Playing?.Invoke(this, EventArgs.Empty);
+			}
+			else if (s.PlaybackState == MediaPlaybackState.Paused && _hasStarted[index]) Paused?.Invoke(this, EventArgs.Empty);
+		};
+		return player;
 	}
 
 	public void Play(string url, bool useCrossfade = false, bool isLive = false)
 	{
 		AppLogger.Log($"AudioEngine: Play called for URL: {url}, isLive: {isLive}", LogLevel.Info);
-		MediaPlayer oldPlayer = ActivePlayer;
-		_usePlayer1 = !_usePlayer1;
-		MediaPlayer newPlayer = ActivePlayer;
 		_fadeCts?.Cancel();
 		_fadeCts = new CancellationTokenSource();
-		CancellationToken token = _fadeCts.Token;
-		Task.Run(async delegate
+		_prepareGeneration++; // prevents a late MediaOpened from pausing the selected player
+
+		int oldIndex = _activeIndex;
+		bool usePrepared = _warmDecodersEnabled && _preparedIsReady && _preparedIndex >= 0 && string.Equals(_preparedUrl, url, StringComparison.Ordinal);
+		bool usePrevious = _warmDecodersEnabled && !usePrepared && _previousIndex >= 0 && string.Equals(_previousUrl, url, StringComparison.Ordinal);
+		int targetIndex = usePrepared ? _preparedIndex : usePrevious ? _previousIndex : FindAvailablePlayer();
+		MediaPlayer? oldPlayer = _players[oldIndex];
+		MediaPlayer? player = _players[targetIndex];
+		bool doCrossfade = useCrossfade && CrossfadeMs > 0 && oldPlayer?.PlaybackSession.PlaybackState == MediaPlaybackState.Playing && targetIndex != oldIndex;
+
+		try
 		{
-			bool started = false;
-			Media media = null;
-			string playUrl = url;
-			try
+			if (!usePrepared && !usePrevious)
 			{
-				media = new Media(_libvlc, playUrl, FromType.FromLocation);
-				int currentCacheMs = (isLive ? Math.Max(3000, _networkCacheMs) : _networkCacheMs);
-				media.AddOption($":network-caching={currentCacheMs}");
-				media.AddOption($":file-caching={currentCacheMs}");
-				media.AddOption($":live-caching={currentCacheMs}");
-				media.AddOption(":clock-jitter=0");
-				media.AddOption(":clock-synchro=0");
-				media.AddOption(":no-mkv-preload-local-dir");
-				media.AddOption(":tcp-nodelay");
-				media.AddOption(":ipv4");
-				SetPlayerMedia(newPlayer, media);
-				started = newPlayer.Play(media);
-				if (!started)
-				{
-					TryDisposeMedia();
-				}
+				player?.Pause();
+				if (player != null) player.Source = null;
+				if (player != null) player.Source = MediaSource.CreateFromUri(new Uri(url));
+				_playerUrls[targetIndex] = url;
 			}
-			catch (Exception value)
+			_preparedIndex = -1;
+			_preparedUrl = null;
+			_preparedIsReady = false;
+			_activeIndex = targetIndex;
+			_hasStarted[targetIndex] = false;
+			// A warm player may have played this track before (for example, when the
+			// user returns to the previous song). Every navigation starts a track
+			// from the beginning; only explicit seeking should preserve a position.
+			if (player != null) player.PlaybackSession.Position = TimeSpan.Zero;
+
+			if (doCrossfade)
 			{
-				AppLogger.Log($"AudioEngine: Failed to start playback for '{playUrl}' - {value}", LogLevel.Error);
-				TryDisposeMedia();
+				player!.Volume = 0;
+				player.Play();
+				StartCrossfade(oldPlayer!, player, _fadeCts.Token);
 			}
-			if (started)
+			else
 			{
-				if (useCrossfade && CrossfadeMs > 0 && oldPlayer.IsPlaying)
-				{
-					_isCrossfading = true;
-					newPlayer.Volume = 0;
-					int startVol = oldPlayer.Volume;
-					int steps = Math.Max(1, CrossfadeMs / 50);
-					int stepDelay = CrossfadeMs / steps;
-					for (int i = 1; i <= steps; i++)
-					{
-						if (token.IsCancellationRequested)
-						{
-							break;
-						}
-						float progress = (float)i / (float)steps;
-						float volIn = (float)Math.Sqrt(progress);
-						float volOut = (float)Math.Sqrt(1f - progress);
-						int currentMaxVol = (int)((double)_targetVolume * 0.8);
-						newPlayer.Volume = (int)((float)currentMaxVol * volIn);
-						oldPlayer.Volume = (int)((float)startVol * volOut);
-						try
-						{
-							await Task.Delay(stepDelay, token);
-						}
-						catch
-						{
-							break;
-						}
-					}
-					oldPlayer.Stop();
-					if (!token.IsCancellationRequested)
-					{
-						newPlayer.Volume = (int)((double)_targetVolume * 0.8);
-					}
-					_isCrossfading = false;
-				}
-				else
-				{
-					oldPlayer.Stop();
-					newPlayer.Volume = (int)((double)_targetVolume * 0.8);
-				}
+				player?.Play();
+				if (player != null) player.Volume = _targetVolume / 100.0 * 0.8;
+				oldPlayer?.Pause();
 			}
 
-			void TryDisposeMedia()
+			// Keep the directly departed track loaded for a fast Previous action.
+			if (oldIndex != targetIndex && _warmDecodersEnabled)
 			{
-				if (media != null && GetCurrentMedia(newPlayer) == media)
-				{
-					SetPlayerMedia(newPlayer, null);
-				}
-				media?.Dispose();
-				media = null;
+				_previousIndex = oldIndex;
+				_previousUrl = _playerUrls[oldIndex];
 			}
+			else if (oldIndex != targetIndex && !doCrossfade)
+			{
+				oldPlayer?.Pause();
+				if (oldPlayer != null) oldPlayer.Source = null;
+				_playerUrls[oldIndex] = null;
+				_previousIndex = -1;
+				_previousUrl = null;
+			}
+		}
+		catch (Exception ex)
+		{
+			AppLogger.Log($"AudioEngine: Failed to start playback for '{url}' - {ex}", LogLevel.Error);
+		}
+	}
+
+	private int FindAvailablePlayer()
+	{
+		for (int i = 0; i < _players.Length; i++)
+			if (i != _activeIndex && i != _previousIndex) return i;
+		// This only occurs before a previous source exists; replace the oldest idle slot.
+		return (_activeIndex + 1) % _players.Length;
+	}
+
+	private void StartCrossfade(MediaPlayer oldPlayer, MediaPlayer newPlayer, CancellationToken token)
+	{
+		_ = Task.Run(async () =>
+		{
+			_isCrossfading = true;
+			double startingVolume = oldPlayer.Volume;
+			int steps = Math.Max(1, CrossfadeMs / 50);
+			for (int i = 1; i <= steps && !token.IsCancellationRequested; i++)
+			{
+				float progress = (float)i / steps;
+				double max = _targetVolume / 100.0 * 0.8;
+				newPlayer.Volume = max * Math.Sqrt(progress);
+				oldPlayer.Volume = startingVolume * Math.Sqrt(1 - progress);
+				try { await Task.Delay(CrossfadeMs / steps, token); } catch { break; }
+			}
+			if (!token.IsCancellationRequested)
+			{
+				oldPlayer.Pause();
+				if (!_warmDecodersEnabled) oldPlayer.Source = null;
+				newPlayer.Volume = _targetVolume / 100.0 * 0.8;
+			}
+			_isCrossfading = false;
 		}, token);
 	}
 
-	public void Pause()
+	public void Preload(string url)
 	{
-		_player1.Pause();
-		_player2.Pause();
+		if (!_warmDecodersEnabled || string.IsNullOrWhiteSpace(url) || _isCrossfading || string.Equals(_previousUrl, url, StringComparison.Ordinal) ||
+			(_preparedIndex >= 0 && string.Equals(_preparedUrl, url, StringComparison.Ordinal))) return;
+
+		int index = FindAvailablePlayer();
+		MediaPlayer? player = _players[index];
+		if (player == null) return;
+		int generation = ++_prepareGeneration;
+		_preparedIndex = index;
+		_preparedUrl = url;
+		_preparedIsReady = false;
+		player.Volume = 0;
+		TypedEventHandler<MediaPlayer, object>? openedHandler = null;
+		openedHandler = (sender, args) =>
+		{
+			if (generation == _prepareGeneration && _preparedIndex == index && string.Equals(_preparedUrl, url, StringComparison.Ordinal))
+			{
+				try
+				{
+					sender.Pause();
+					sender.PlaybackSession.Position = TimeSpan.Zero;
+					_preparedIsReady = true;
+				}
+				catch { _preparedIsReady = false; }
+			}
+			sender.MediaOpened -= openedHandler;
+		};
+		try
+		{
+			player.MediaOpened += openedHandler;
+			player.Pause();
+			player.Source = null;
+			player.Source = MediaSource.CreateFromUri(new Uri(url));
+			_playerUrls[index] = url;
+			player.Play();
+		}
+		catch
+		{
+			player.MediaOpened -= openedHandler;
+			if (_preparedIndex == index) { _preparedIndex = -1; _preparedUrl = null; _preparedIsReady = false; }
+		}
 	}
 
-	public void Resume()
+	private void ReleaseWarmPlayers()
 	{
-		if (_usePlayer1)
+		_prepareGeneration++;
+		for (int i = 0; i < _players.Length; i++)
 		{
-			_player1.Play();
+			if (i == _activeIndex) continue;
+			_players[i]?.Pause();
+			if (_players[i] != null) _players[i]!.Source = null;
+			_playerUrls[i] = null;
 		}
-		else
-		{
-			_player2.Play();
-		}
+		_previousIndex = _preparedIndex = -1;
+		_previousUrl = _preparedUrl = null;
+		_preparedIsReady = false;
 	}
 
+	public void Pause() { foreach (MediaPlayer? player in _players) player?.Pause(); }
+	public void Resume() => ActivePlayer?.Play();
 	public void Stop()
 	{
 		_fadeCts?.Cancel();
-		Task.Run(delegate
+		for (int i = 0; i < _players.Length; i++)
 		{
-			_player1.Stop();
-			_player2.Stop();
-		});
+			_players[i]?.Pause();
+			if (_players[i] != null) _players[i]!.Source = null;
+			_playerUrls[i] = null;
+		}
+		_previousIndex = _preparedIndex = -1;
+		_previousUrl = _preparedUrl = null;
+		_preparedIsReady = false;
 	}
-
 	public void Dispose()
 	{
-		_fadeCts?.Cancel();
-		_player1Media?.Dispose();
-		_player2Media?.Dispose();
-		_player1?.Dispose();
-		_player2?.Dispose();
-		_libvlc.Dispose();
+		Stop();
+		foreach (MediaPlayer? player in _players) player?.Dispose();
 	}
 }

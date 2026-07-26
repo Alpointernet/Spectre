@@ -4,8 +4,9 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Text.Json;
 using Microsoft.Web.WebView2.Core;
-using Newtonsoft.Json;
+
 
 namespace Spectre;
 
@@ -79,7 +80,7 @@ public partial class LoginWindow : Window
 			CoreWebView2Cookie sapisidCookie = cookies.FirstOrDefault((CoreWebView2Cookie c) => c.Name == "SAPISID");
 			if (sapisidCookie != null)
 			{
-				string json = JsonConvert.SerializeObject(new Dictionary<string, string>
+				string json = JsonSerializer.Serialize(new Dictionary<string, string>
 				{
 					{ "cookie", cookieString },
 					{ "sapisid", sapisidCookie.Value },
@@ -88,7 +89,7 @@ public partial class LoginWindow : Window
 						webView.CoreWebView2.Settings.UserAgent
 					},
 					{ "authUser", _capturedAuthUser }
-				}, Formatting.Indented);
+				}, new JsonSerializerOptions { WriteIndented = true });
 				Directory.CreateDirectory(Path.GetDirectoryName(BackendService.AuthFilePath));
 				BackendService.SaveAuthData(json);
 				IsLoginSuccessful = true;

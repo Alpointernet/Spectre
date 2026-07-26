@@ -31,11 +31,10 @@ using System.Windows.Shapes;
 using System.Windows.Shell;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.Messaging;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Win32;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
-using SharpVectors.Converters;
+
+using System.Text.Json.Nodes;
+using System.Text.Json;
 using Spectre.Services;
 using Spectre.ViewModels;
 using Spectre.Views;
@@ -132,10 +131,13 @@ namespace Spectre; public partial class MainWindow {
 		long target = (long)(ratio * MainPlayerBarControl.TimelineSliderRef.Maximum);
 		MainPlayerBarControl.TimelineSliderRef.BeginAnimation(RangeBase.ValueProperty, null);
 		MainPlayerBarControl.TimelineSliderRef.Value = target;
-		PlayerBarViewModel vmTime = App.Current.Services.GetService<PlayerBarViewModel>();
+		PlayerBarViewModel vmTime = App.Current.PlayerBarViewModel;
 		if (vmTime != null)
 		{
 			vmTime.CurrentTimeText = TimeSpan.FromMilliseconds(target).ToString("m\\:ss");
 		}
 	}
 }
+
+
+

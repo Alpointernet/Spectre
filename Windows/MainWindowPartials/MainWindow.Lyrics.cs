@@ -31,11 +31,10 @@ using System.Windows.Shapes;
 using System.Windows.Shell;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.Messaging;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Win32;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
-using SharpVectors.Converters;
+
+using System.Text.Json.Nodes;
+using System.Text.Json;
 using Spectre.Services;
 using Spectre.ViewModels;
 using Spectre.Views;
@@ -87,7 +86,7 @@ namespace Spectre; public partial class MainWindow {
 			_lyricLines.Clear();
 			try
 			{
-				JObject json = await LoadLyricsForTrackAsync(_currentVideoId, _currentTitle, _currentArtist, _player.Length, CancellationToken.None);
+				JsonObject json = await LoadLyricsForTrackAsync(_currentVideoId, _currentTitle, _currentArtist, _player.Length, CancellationToken.None);
 				if (!_isLyricsViewOpen || _lyricsVideoId != _currentVideoId)
 				{
 					return;
@@ -149,13 +148,13 @@ namespace Spectre; public partial class MainWindow {
 		return $"{videoId}|{durationBucket}|{title}|{artist}";
 	}
 
-	private Task<JObject> LoadLyricsForTrackAsync(string videoId, string title, string artist, long durationMs, CancellationToken token)
+	private Task<JsonObject> LoadLyricsForTrackAsync(string videoId, string title, string artist, long durationMs, CancellationToken token)
 	{
 		if (_lyricsTasks.Count > 25)
 		{
 			foreach (string staleKey in _lyricsTasks.Keys.Take(Math.Max(1, _lyricsTasks.Count - 20)).ToList())
 			{
-				_lyricsTasks.TryRemove(staleKey, out Task<JObject> _);
+				_lyricsTasks.TryRemove(staleKey, out Task<JsonObject> _);
 			}
 		}
 		string key = GetLyricsCacheKey(videoId, title, artist, durationMs);
@@ -177,11 +176,11 @@ namespace Spectre; public partial class MainWindow {
 			return;
 		}
 		_lastLyricsWarmKey = key;
-		LoadLyricsForTrackAsync(videoId, title, artist, durationMs, CancellationToken.None).ContinueWith(delegate(Task<JObject> t)
+		LoadLyricsForTrackAsync(videoId, title, artist, durationMs, CancellationToken.None).ContinueWith(delegate(Task<JsonObject> t)
 		{
 			if (t.IsFaulted)
 			{
-				_lyricsTasks.TryRemove(key, out Task<JObject> _);
+				_lyricsTasks.TryRemove(key, out Task<JsonObject> _);
 				if (_lastLyricsWarmKey == key)
 				{
 					_lastLyricsWarmKey = "";
@@ -190,9 +189,9 @@ namespace Spectre; public partial class MainWindow {
 		}, TaskScheduler.Default);
 	}
 
-	private void ApplyLyricsJson(JObject json)
+	private void ApplyLyricsJson(JsonObject json)
 	{
-		JArray lines = json["lines"] as JArray;
+		JsonArray lines = json["lines"] as JsonArray;
 		_lyricsAreSynced = (bool?)json["synced"] == true;
 		_lyricsSource = ((string?)json["source"]) ?? "";
 		_lyricsOffsetMs = 0;
@@ -206,16 +205,16 @@ namespace Spectre; public partial class MainWindow {
 		if (_lyricsAreSynced)
 		{
 			int meaningfulLines = 0;
-			foreach (JToken item in lines)
+			foreach (JsonNode item in lines)
 			{
-				if (!(item["syllables"] is JArray { Count: >1 } syllablesArr))
+				if (!(item["syllables"] is JsonArray { Count: >1 } syllablesArr))
 				{
 					continue;
 				}
-				long firstTime = ((long?)syllablesArr.First?["timeMs"]).GetValueOrDefault();
-				long lastTime = ((long?)syllablesArr.Last?["timeMs"]).GetValueOrDefault();
+				long firstTime = ((long?)syllablesArr.AsArray().FirstOrDefault()?["timeMs"]).GetValueOrDefault();
+				long lastTime = ((long?)syllablesArr.AsArray().LastOrDefault()?["timeMs"]).GetValueOrDefault();
 				long totalDuration = 0L;
-				foreach (JToken syl in syllablesArr)
+				foreach (JsonNode syl in syllablesArr)
 				{
 					totalDuration += ((long?)syl["durationMs"]).GetValueOrDefault();
 				}
@@ -228,7 +227,7 @@ namespace Spectre; public partial class MainWindow {
 			{
 				hasRealSyllables = true;
 			}
-			foreach (JToken item2 in lines)
+			foreach (JsonNode item2 in lines)
 			{
 				if ((((string?)item2["text"]) ?? "").Split(new string[2] { "\\n", "\n" }, StringSplitOptions.None).Length > 3)
 				{
@@ -237,7 +236,7 @@ namespace Spectre; public partial class MainWindow {
 				}
 			}
 		}
-		foreach (JToken line in lines)
+		foreach (JsonNode line in lines)
 		{
 			string text = ((string?)line["text"]) ?? "";
 			long timeMs = ((long?)line["timeMs"]).GetValueOrDefault();
@@ -276,11 +275,11 @@ namespace Spectre; public partial class MainWindow {
 				TimeMs = timeMs,
 				Text = text
 			};
-			JArray syllablesArr2 = (hasRealSyllables ? (line["syllables"] as JArray) : null);
+			JsonArray syllablesArr2 = (hasRealSyllables ? (line["syllables"] as JsonArray) : null);
 			if (syllablesArr2 != null && syllablesArr2.Count > 0)
 			{
 				lyricLine.Syllables = new List<LyricSyllable>();
-				foreach (JToken item3 in syllablesArr2)
+				foreach (JsonNode item3 in syllablesArr2)
 				{
 					string rawText = ((string?)item3["text"]) ?? "";
 					long tMs = ((long?)item3["timeMs"]).GetValueOrDefault();
@@ -1084,3 +1083,5 @@ namespace Spectre; public partial class MainWindow {
 		}
 	}
 }
+
+

@@ -31,11 +31,10 @@ using System.Windows.Shapes;
 using System.Windows.Shell;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.Messaging;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Win32;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
-using SharpVectors.Converters;
+
+using System.Text.Json.Nodes;
+using System.Text.Json;
 using Spectre.Services;
 using Spectre.ViewModels;
 using Spectre.Views;
@@ -101,21 +100,21 @@ namespace Spectre; public partial class MainWindow {
 		int tId = await FadeOutContentAsync();
 		try
 		{
-			if (!((await BackendService.Instance.SearchAsync(query, CancellationToken.None))["data"] is JObject data))
+			if (!((await BackendService.Instance.SearchAsync(query, CancellationToken.None))["data"] is JsonObject data))
 			{
 				return;
 			}
 			ContentPanel.Children.Clear();
 			StackPanel searchResultsPanel = new StackPanel();
-			if (data["artists"] is JArray { Count: >0 } artists)
+			if (data["artists"] is JsonArray { Count: >0 } artists)
 			{
 				var (sv, grid) = CreateExpandableSection("Artists", artists.Count);
-				foreach (JToken item2 in artists)
+				foreach (JsonNode item2 in artists)
 				{
 					string id = ((string?)item2["browseId"]) ?? "";
 					string title = ((string?)item2["artist"]) ?? "";
 					string thumbs = "";
-					if (item2["thumbnails"] is JArray { Count: >0 } tArr)
+					if (item2["thumbnails"] is JsonArray { Count: >0 } tArr)
 					{
 						thumbs = ((string?)tArr[tArr.Count - 1]["url"]) ?? "";
 					}
@@ -123,7 +122,7 @@ namespace Spectre; public partial class MainWindow {
 				}
 				searchResultsPanel.Children.Add(sv);
 			}
-			if (data["songs"] is JArray { Count: >0 } songs)
+			if (data["songs"] is JsonArray { Count: >0 } songs)
 			{
 				(UIElement, System.Windows.Controls.Panel) tuple2 = CreateExpandableGridSection("Songs", 210.0, songs.Count);
 				UIElement sectionContainer = tuple2.Item1;
@@ -133,23 +132,23 @@ namespace Spectre; public partial class MainWindow {
 				{
 					grid2.Columns = Math.Max(1, (int)(ev.NewSize.Width / 320.0));
 				};
-				foreach (JToken item in songs)
+				foreach (JsonNode item in songs)
 				{
 					string videoId = ((string?)item["videoId"]) ?? "";
 					string title2 = ((string?)item["title"]) ?? "";
 					string artistsStr = "";
-					JArray artistsToken = item["artists"] as JArray;
+					JsonArray artistsToken = item["artists"] as JsonArray;
 					if (artistsToken != null)
 					{
 						List<string> names = new List<string>();
-						foreach (JToken a in artistsToken)
+						foreach (JsonNode a in artistsToken)
 						{
 							names.Add(((string?)a["name"]) ?? "");
 						}
 						artistsStr = string.Join(", ", names);
 					}
 					string thumbUrl = "";
-					if (item["thumbnails"] is JArray { Count: >0 } thumbs2)
+					if (item["thumbnails"] is JsonArray { Count: >0 } thumbs2)
 					{
 						thumbUrl = ((string?)thumbs2[thumbs2.Count - 1]["url"]) ?? "";
 					}
@@ -162,24 +161,24 @@ namespace Spectre; public partial class MainWindow {
 				}
 				searchResultsPanel.Children.Add(sectionContainer);
 			}
-			if (data["albums"] is JArray { Count: >0 } albums)
+			if (data["albums"] is JsonArray { Count: >0 } albums)
 			{
 				var (sv2, grid3) = CreateExpandableSection("Albums", albums.Count);
-				foreach (JToken item3 in albums)
+				foreach (JsonNode item3 in albums)
 				{
 					string id2 = ((string?)item3["browseId"]) ?? "";
 					string title3 = ((string?)item3["title"]) ?? "";
 					string year = ((string?)item3["year"]) ?? "";
 					string thumbs3 = "";
-					if (item3["thumbnails"] is JArray { Count: >0 } tArr2)
+					if (item3["thumbnails"] is JsonArray { Count: >0 } tArr2)
 					{
 						thumbs3 = ((string?)tArr2[tArr2.Count - 1]["url"]) ?? "";
 					}
 					string artistsStr2 = "Album";
-					if (item3["artists"] is JArray artistsToken2)
+					if (item3["artists"] is JsonArray artistsToken2)
 					{
 						List<string> names2 = new List<string>();
-						foreach (JToken a2 in artistsToken2)
+						foreach (JsonNode a2 in artistsToken2)
 						{
 							names2.Add(((string?)a2["name"]) ?? "");
 						}
@@ -209,3 +208,6 @@ namespace Spectre; public partial class MainWindow {
 		}
 	}
 }
+
+
+

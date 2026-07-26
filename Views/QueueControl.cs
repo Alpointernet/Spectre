@@ -27,7 +27,7 @@ public partial class QueueControl : UserControl
 
 	private void Image_TargetUpdated(object sender, DataTransferEventArgs e)
 	{
-		if (sender is Image img && img.Source is BitmapSource bs)
+		if (sender is System.Windows.Controls.Image img && img.Source is BitmapSource bs)
 		{
 			if (bs.IsDownloading)
 			{
@@ -51,10 +51,9 @@ public partial class QueueControl : UserControl
 			}
 			else
 			{
-				img.Opacity = 0.0;
-				DoubleAnimation anim = new DoubleAnimation(0.0, 1.0, TimeSpan.FromMilliseconds(250.0));
-				img.BeginAnimation(Image.OpacityProperty, anim);
+				img.Opacity = 1.0;
 			}
 		}
 	}
 }
+
