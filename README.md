@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="Icons/highresapp.png" alt="Spectre Logo" width="150"/>
+  <img src="Resources/Icons/highresapp.png" alt="Spectre Logo" width="150"/>
   
   # Spectre
   
