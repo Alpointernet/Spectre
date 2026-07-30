@@ -7,7 +7,6 @@
   
   [![Platform](https://img.shields.io/badge/platform-Windows-blue)](#)
   [![Framework](https://img.shields.io/badge/framework-WPF%20%2F%20.NET-purple)](#)
-  [![Contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](#)
 </div>
 
 ---
