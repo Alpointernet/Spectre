@@ -48,6 +48,4 @@ Contributions, issues, and feature requests are welcome! Feel free to check the 
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details (if applicable).
-
 _This app is not affiliated with, endorsed by, or supported by Google or YouTube. It uses unofficial methods and may stop working if YouTube changes their service._
